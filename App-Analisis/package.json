@@ -1,0 +1,16 @@
+{
+    "name":  "app-analisis-texto",
+    "version":  "0.1.0",
+    "private":  true,
+    "description":  "Demo ligera de analisis de texto con Azure AI Language.",
+    "scripts":  {
+                    "dev":  "concurrently \"npm run dev:backend\" \"npm run dev:frontend\"",
+                    "dev:backend":  "cd backend \u0026\u0026 py -m uvicorn app.main:app --reload --host 0.0.0.0 --port 3010",
+                    "dev:frontend":  "npm run dev --prefix frontend",
+                    "build":  "npm run build --prefix frontend",
+                    "typecheck":  "npm run typecheck --prefix frontend"
+                },
+    "devDependencies":  {
+                            "concurrently":  "^9.1.2"
+                        }
+}

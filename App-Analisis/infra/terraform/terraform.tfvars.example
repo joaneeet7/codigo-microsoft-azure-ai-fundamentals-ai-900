@@ -1,0 +1,7 @@
+﻿subscription_id = "00000000-0000-0000-0000-000000000000"
+location        = "eastus2"
+name_prefix     = "txtdemo"
+sku_name        = "F0"
+
+backend_port    = 3010
+frontend_origin = "http://localhost:5174"
