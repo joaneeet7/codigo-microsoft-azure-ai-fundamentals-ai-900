@@ -27,8 +27,22 @@ npm install --prefix frontend
 
 3. Copia las variables de entorno:
 
+En macOS o Linux:
+
 ```bash
+cp backend/.env.example backend/.env
+```
+
+En Windows (CMD):
+
+```cmd
 copy backend\.env.example backend\.env
+```
+
+En Windows (PowerShell):
+
+```powershell
+Copy-Item backend\.env.example backend\.env
 ```
 
 4. Edita `backend/.env`:
@@ -67,36 +81,3 @@ frontend/
 - El backend usa `DefaultAzureCredential`, por eso `az login` debe estar activo.
 - El frontend no conoce secretos ni endpoints de Foundry.
 - La conversacion se mantiene en memoria en el navegador durante la sesion.
-
-## Infraestructura con Terraform
-
-La carpeta `infra/terraform` crea el recurso de Microsoft Foundry, un proyecto y un deployment de modelo.
-
-### Opcion automatica
-
-Este script detecta tu `subscription_id`, actualiza `terraform.tfvars`, ejecuta Terraform, escribe `backend/.env`, levanta el backend, espera a que `/health` responda y luego levanta el frontend:
-
-```bash
-bash scripts/deploy-foundry-and-run.sh
-```
-
-Si estas en Windows, ejecutalo desde Git Bash, WSL o una terminal compatible con Bash.
-
-### Opcion manual
-
-```bash
-cd infra/terraform
-copy terraform.tfvars.example terraform.tfvars
-```
-
-Edita `terraform.tfvars` con tu `subscription_id` y region. Luego ejecuta:
-
-```bash
-az login
-terraform init -upgrade
-terraform plan -out main.tfplan
-terraform apply main.tfplan
-terraform output backend_env
-```
-
-Copia el output `backend_env` en `backend/.env`.
