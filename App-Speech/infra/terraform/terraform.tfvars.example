@@ -1,0 +1,9 @@
+subscription_id = "00000000-0000-0000-0000-000000000000"
+location        = "eastus2"
+name_prefix     = "speechdemo"
+sku_name        = "F0"
+
+speech_voice_name            = "es-MX-DaliaNeural"
+speech_recognition_language  = "es-MX"
+backend_port                 = 3022
+frontend_origin              = "http://localhost:5175"
