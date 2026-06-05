@@ -2,7 +2,7 @@ import base64
 import os
 import tempfile
 from pathlib import Path
-from typing import Any
+from typing import Any, Optional, Union
 
 import azure.cognitiveservices.speech as speechsdk
 from dotenv import load_dotenv
@@ -32,7 +32,7 @@ app.add_middleware(
 
 class SynthesizeRequest(BaseModel):
     text: str = Field(..., min_length=1, max_length=4000)
-    voiceName: str | None = None
+    voiceName: Optional[str] = None
 
 
 @app.get("/health")
@@ -102,11 +102,21 @@ async def transcribe(
         speech_config = build_speech_config()
         speech_config.speech_recognition_language = language or DEFAULT_RECOGNITION_LANGUAGE
         audio_config = speechsdk.audio.AudioConfig(filename=temp_path)
-        recognizer = speechsdk.SpeechRecognizer(
-            speech_config=speech_config,
-            audio_config=audio_config,
-        )
-        result = recognizer.recognize_once_async().get()
+        try:
+            recognizer = speechsdk.SpeechRecognizer(
+                speech_config=speech_config,
+                audio_config=audio_config,
+            )
+            result = recognizer.recognize_once_async().get()
+        except RuntimeError as exc:
+            raise HTTPException(
+                status_code=400,
+                detail=(
+                    "No se pudo leer el audio. Sube un WAV PCM sin comprimir "
+                    "(mono, 16 kHz, 16-bit). Convierte el archivo si viene de MP3, "
+                    "M4A u otro formato."
+                ),
+            ) from exc
 
         if result.reason == speechsdk.ResultReason.RecognizedSpeech:
             return {
@@ -148,7 +158,7 @@ def build_speech_config() -> speechsdk.SpeechConfig:
     return speechsdk.SpeechConfig(subscription=SPEECH_KEY, region=SPEECH_REGION)
 
 
-def get_cancellation_detail(result: speechsdk.SpeechSynthesisResult | speechsdk.SpeechRecognitionResult) -> str:
+def get_cancellation_detail(result: Union[speechsdk.SpeechSynthesisResult, speechsdk.SpeechRecognitionResult]) -> str:
     cancellation = speechsdk.CancellationDetails(result)
     if cancellation.error_details:
         return cancellation.error_details

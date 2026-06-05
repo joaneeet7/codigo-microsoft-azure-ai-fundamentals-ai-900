@@ -19,7 +19,7 @@ const voices = [
 
 export function SpeechDemo() {
   const [text, setText] = useState(
-    "Bienvenido a la demo de Azure Speech en Foundry Tools. Esta aplicacion convierte texto en voz y transcribe audio con un backend en Python."
+    "Bienvenido a la demo de Azure Speech en Foundry Tools. Esta aplicación convierte texto en voz y transcribe audio mediante un backend en Python."
   );
   const [voiceName, setVoiceName] = useState(voices[0]);
   const [audioUrl, setAudioUrl] = useState("");

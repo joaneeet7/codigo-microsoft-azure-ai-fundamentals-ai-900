@@ -6,8 +6,3 @@ __pycache__/
 *.pyc
 .venv/
 npm-debug.log*
-.terraform/
-*.tfstate
-*.tfstate.*
-*.tfplan
-terraform.tfvars
