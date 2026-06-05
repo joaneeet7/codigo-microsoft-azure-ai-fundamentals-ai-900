@@ -38,7 +38,7 @@ type AnalysisResult = {
 const apiUrl = import.meta.env.VITE_API_URL || "http://localhost:3010";
 
 const examples = [
-  "Blockstellart esta creando una experiencia excelente con Azure AI. El equipo avanzo rapido y el resultado fue muy util para los usuarios.",
+  "Blockstellart está creando una experiencia excelente con Azure AI. El equipo avanzó rápido y el resultado fue muy útil para los usuarios.",
   "El servicio tardo demasiado y algunos clientes reportaron errores en la aplicacion durante la manana.",
   "Microsoft Azure AI Language permite detectar idioma, entidades, frases clave y sentimiento dentro de documentos de texto."
 ];

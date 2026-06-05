@@ -1,6 +1,6 @@
 # App Analisis Texto
 
-Aplicacion ligera para analizar texto con Azure AI Language. Incluye un backend Express y un frontend React/Vite.
+Aplicacion ligera para analizar texto con Azure AI Language. Incluye un backend Python/FastAPI y un frontend React/Vite.
 
 ## Funciones
 
@@ -13,15 +13,37 @@ Aplicacion ligera para analizar texto con Azure AI Language. Incluye un backend 
 ## Requisitos
 
 - Node.js 20 o superior
+- Python 3.9 o superior
 - Recurso de Azure AI Language, opcional para demo local
 
 ## Configuracion
+
+Instala dependencias (igual en todos los sistemas):
 
 ```bash
 npm install
 npm install --prefix backend
 npm install --prefix frontend
+```
+
+Crea `backend/.env` desde el ejemplo.
+
+En macOS o Linux:
+
+```bash
+cp backend/.env.example backend/.env
+```
+
+En Windows (CMD):
+
+```cmd
 copy backend\.env.example backend\.env
+```
+
+En Windows (PowerShell):
+
+```powershell
+Copy-Item backend\.env.example backend\.env
 ```
 
 Edita `backend/.env` si usaras Azure:
@@ -36,20 +58,6 @@ ALLOWED_ORIGIN=http://localhost:5174
 Si dejas esas variables vacias, el backend usa un analisis local aproximado.
 
 ## Ejecutar
-
-Backend:
-
-```bash
-npm run dev:backend
-```
-
-Frontend:
-
-```bash
-npm run dev:frontend
-```
-
-O ambos:
 
 ```bash
 npm run dev
@@ -96,11 +104,25 @@ Si eliges la opcion 1, el script:
 - Pregunta si quieres escribirlo automaticamente en `backend/.env`
 - Levanta primero el backend y despues el frontend
 
-Terraform manual:
+Terraform manual.
+
+En macOS o Linux:
 
 ```bash
 cd infra/terraform
+cp terraform.tfvars.example terraform.tfvars
+```
+
+En Windows (CMD):
+
+```cmd
+cd infra\terraform
 copy terraform.tfvars.example terraform.tfvars
+```
+
+Luego, en cualquier sistema:
+
+```bash
 terraform init -upgrade
 terraform plan -out main.tfplan
 terraform apply main.tfplan
@@ -118,19 +140,30 @@ POST /api/analyze
 GET  /health
 ```
 
-Instalar dependencias del backend:
+Instalar dependencias del backend.
+
+En macOS o Linux:
 
 ```bash
 cd backend
-python -m pip install -r requirements.txt
+python3 -m pip install -r requirements.txt
 ```
 
-Ejecutar backend:
+En Windows (usa `py` o `python` segun tu instalacion):
+
+```cmd
+cd backend
+py -m pip install -r requirements.txt
+```
+
+Ejecutar backend (mismo comando en todos los sistemas):
 
 ```bash
 cd ..
-npm.cmd run dev:backend
+npm run dev:backend
 ```
+
+> Nota: el script `dev:backend` ejecuta `python3`. Si estas en Windows y no tienes `python3`, edita `package.json` y cambia `python3` por `py` (o `python`).
 
 El backend corre en:
 
