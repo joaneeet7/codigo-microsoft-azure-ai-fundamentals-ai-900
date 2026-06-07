@@ -1,6 +1,7 @@
 ﻿import os
 import re
 from math import ceil
+from pathlib import Path
 from typing import Any, Literal
 
 import requests
@@ -9,7 +10,7 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
-load_dotenv()
+load_dotenv(Path(__file__).resolve().parents[1] / ".env")
 
 PORT = int(os.getenv("PORT", "3010"))
 ALLOWED_ORIGIN = os.getenv("ALLOWED_ORIGIN", "http://localhost:5174")
