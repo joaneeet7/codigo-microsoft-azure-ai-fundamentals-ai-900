@@ -200,6 +200,79 @@ h2 {
   border-top: 4px solid #14b8a6;
 }
 
+.tool-card.multimodal {
+  border-top: 4px solid #7c3aed;
+}
+
+.tool-card.multimodal .card-title svg {
+  color: #7c3aed;
+  background: #f3edff;
+}
+
+.status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 14px;
+  padding: 8px 12px;
+  border: 1px solid #dbe4ef;
+  border-radius: 999px;
+  color: #475569;
+  font-size: 0.84rem;
+  font-weight: 700;
+  background: #f8fbff;
+}
+
+.status-pill .status-dot {
+  margin-top: 0;
+}
+
+.instructions-label {
+  display: grid;
+  gap: 6px;
+  margin-top: 12px;
+  color: #475569;
+  font-size: 0.84rem;
+  font-weight: 800;
+}
+
+.instructions-label input {
+  min-height: 42px;
+  padding: 0 12px;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  color: #162033;
+  background: #ffffff;
+  outline: none;
+}
+
+.instructions-label input:focus {
+  border-color: #7c3aed;
+  box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.14);
+}
+
+.multimodal-action {
+  min-height: 46px;
+  margin-top: 12px;
+  padding: 0 16px;
+  display: inline-flex;
+  gap: 8px;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 8px;
+  color: #ffffff;
+  cursor: pointer;
+  font-weight: 900;
+  background: #7c3aed;
+  box-shadow: 0 14px 28px rgba(124, 58, 237, 0.24);
+}
+
+.multimodal-action:disabled {
+  cursor: not-allowed;
+  opacity: 0.48;
+}
+
 .card-title {
   display: grid;
   grid-template-columns: auto 1fr;

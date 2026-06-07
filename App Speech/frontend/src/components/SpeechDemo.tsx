@@ -1,7 +1,9 @@
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import AudioWaveform from "lucide-react/dist/esm/icons/audio-waveform.js";
+import Bot from "lucide-react/dist/esm/icons/bot.js";
 import FileAudio from "lucide-react/dist/esm/icons/file-audio.js";
 import Loader2 from "lucide-react/dist/esm/icons/loader-2.js";
+import MessageSquare from "lucide-react/dist/esm/icons/message-square.js";
 import Mic2 from "lucide-react/dist/esm/icons/mic-2.js";
 import Play from "lucide-react/dist/esm/icons/play.js";
 import Radio from "lucide-react/dist/esm/icons/radio.js";
@@ -31,6 +33,15 @@ export function SpeechDemo() {
   const [isTranscribing, setIsTranscribing] = useState(false);
   const [error, setError] = useState("");
 
+  const [multimodalConfigured, setMultimodalConfigured] = useState(false);
+  const [multimodalModel, setMultimodalModel] = useState("");
+  const [promptFile, setPromptFile] = useState<File | null>(null);
+  const [instructions, setInstructions] = useState("");
+  const [recognizedPrompt, setRecognizedPrompt] = useState("");
+  const [answerText, setAnswerText] = useState("");
+  const [answerAudioUrl, setAnswerAudioUrl] = useState("");
+  const [isResponding, setIsResponding] = useState(false);
+
   const characterCount = useMemo(() => text.trim().length, [text]);
 
   useEffect(() => {
@@ -47,7 +58,19 @@ export function SpeechDemo() {
       }
     }
 
+    async function loadMultimodalConfig() {
+      try {
+        const response = await fetch(`${apiUrl}/api/multimodal/config`);
+        const data = await response.json();
+        setMultimodalConfigured(Boolean(data.configured));
+        setMultimodalModel(data.model || "");
+      } catch {
+        setMultimodalConfigured(false);
+      }
+    }
+
     loadConfig();
+    loadMultimodalConfig();
   }, []);
 
   async function synthesize(event: FormEvent<HTMLFormElement>) {
@@ -105,6 +128,42 @@ export function SpeechDemo() {
       setError(err instanceof Error ? err.message : "Error inesperado.");
     } finally {
       setIsTranscribing(false);
+    }
+  }
+
+  async function respond() {
+    if (!promptFile || isResponding) return;
+
+    setError("");
+    setRecognizedPrompt("");
+    setAnswerText("");
+    setAnswerAudioUrl("");
+    setIsResponding(true);
+
+    try {
+      const formData = new FormData();
+      formData.append("file", promptFile);
+      if (instructions.trim()) formData.append("instructions", instructions.trim());
+
+      const response = await fetch(`${apiUrl}/api/multimodal/respond`, {
+        method: "POST",
+        body: formData
+      });
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.detail || "No se pudo obtener respuesta del modelo.");
+      }
+
+      setRecognizedPrompt(data.recognizedPrompt || "");
+      setAnswerText(data.answerText || "El modelo no devolvio texto.");
+      if (data.audioBase64) {
+        setAnswerAudioUrl(`data:${data.contentType};base64,${data.audioBase64}`);
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Error inesperado.");
+    } finally {
+      setIsResponding(false);
     }
   }
 
@@ -199,6 +258,77 @@ export function SpeechDemo() {
               <strong>Transcripcion</strong>
               <p>{transcript || "El texto reconocido aparecera aqui."}</p>
             </div>
+          </section>
+
+          <section className="tool-card multimodal">
+            <div className="card-title">
+              <Bot size={20} />
+              <div>
+                <h2>Prompt hablado con modelo desplegado</h2>
+                <p>
+                  Transcribe tu audio con Azure Speech, lo envia a un modelo
+                  desplegado en Azure AI Foundry y responde en texto y voz.
+                </p>
+              </div>
+            </div>
+
+            <div className="status-pill">
+              <span className={multimodalConfigured ? "status-dot ready" : "status-dot"} />
+              <span>
+                {multimodalConfigured
+                  ? `Modelo listo${multimodalModel ? `: ${multimodalModel}` : ""}`
+                  : "Configura FOUNDRY_ENDPOINT, FOUNDRY_API_KEY y FOUNDRY_MODEL"}
+              </span>
+            </div>
+
+            <label className="drop-zone">
+              <FileAudio size={24} />
+              <span>{promptFile ? promptFile.name : "Seleccionar audio del prompt (WAV)"}</span>
+              <input
+                type="file"
+                accept=".wav,audio/wav"
+                onChange={(event) => setPromptFile(event.target.files?.[0] || null)}
+              />
+            </label>
+
+            <label className="instructions-label">
+              Instrucciones (opcional)
+              <input
+                type="text"
+                placeholder="Ej: Responde en espanol y de forma concisa."
+                value={instructions}
+                onChange={(event) => setInstructions(event.target.value)}
+              />
+            </label>
+
+            <button
+              className="multimodal-action"
+              type="button"
+              onClick={respond}
+              disabled={!promptFile || isResponding}
+            >
+              {isResponding ? <Loader2 className="spin" size={18} /> : <MessageSquare size={18} />}
+              Responder al prompt
+            </button>
+
+            {recognizedPrompt && (
+              <div className="transcript-box">
+                <strong>Prompt reconocido</strong>
+                <p>{recognizedPrompt}</p>
+              </div>
+            )}
+
+            <div className="transcript-box">
+              <strong>Respuesta del modelo</strong>
+              <p>{answerText || "La respuesta del modelo aparecera aqui."}</p>
+            </div>
+
+            {answerAudioUrl && (
+              <div className="audio-result">
+                <Radio size={18} />
+                <audio src={answerAudioUrl} controls />
+              </div>
+            )}
           </section>
 
           {error && <div className="error">{error}</div>}

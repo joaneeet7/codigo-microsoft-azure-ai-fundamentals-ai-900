@@ -3,3 +3,4 @@ uvicorn[standard]==0.34.0
 python-dotenv==1.0.1
 python-multipart==0.0.20
 azure-cognitiveservices-speech==1.42.0
+azure-ai-inference==1.0.0b9

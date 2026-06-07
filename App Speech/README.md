@@ -7,6 +7,7 @@ Demo ligera usando Azure Speech en Foundry Tools con backend Python/FastAPI y fr
 
 - Text to speech: convierte texto a audio MP3 usando Azure Speech.
 - Speech to text: transcribe archivos WAV cortos.
+- Prompt hablado con modelo multimodal: envia un audio a un modelo multimodal desplegado en Azure AI Foundry y obtiene respuesta en texto (y voz mediante Azure Speech).
 - Frontend profesional con panel de voz, reproductor y resultados.
 
 ## Requisitos
@@ -68,6 +69,11 @@ SPEECH_VOICE_NAME=es-MX-DaliaNeural
 SPEECH_RECOGNITION_LANGUAGE=es-MX
 PORT=3022
 ALLOWED_ORIGIN=http://localhost:5175
+
+# Modelo desplegado en Azure AI Foundry (opcional, para responder prompts hablados)
+FOUNDRY_ENDPOINT=https://<tu-recurso>.services.ai.azure.com/models
+FOUNDRY_API_KEY=<tu-key>
+FOUNDRY_MODEL=gpt-5-mini
 ```
 
 ## Ejecutar

@@ -19,6 +19,14 @@ DEFAULT_VOICE = os.getenv("SPEECH_VOICE_NAME", "es-MX-DaliaNeural").strip()
 DEFAULT_RECOGNITION_LANGUAGE = os.getenv("SPEECH_RECOGNITION_LANGUAGE", "es-MX").strip()
 ALLOWED_ORIGIN = os.getenv("ALLOWED_ORIGIN", "http://localhost:5175")
 
+FOUNDRY_ENDPOINT = os.getenv("FOUNDRY_ENDPOINT", "").strip().rstrip("/")
+FOUNDRY_API_KEY = os.getenv("FOUNDRY_API_KEY", "").strip()
+FOUNDRY_MODEL = os.getenv("FOUNDRY_MODEL", "").strip()
+MULTIMODAL_SYSTEM_PROMPT = os.getenv(
+    "FOUNDRY_SYSTEM_PROMPT",
+    "Eres un asistente de voz util. Responde de forma breve y clara al prompt hablado del usuario.",
+).strip()
+
 app = FastAPI(title="Azure Speech Demo API", version="0.1.0")
 
 app.add_middleware(
@@ -47,6 +55,17 @@ def speech_config() -> dict[str, Any]:
         "region": SPEECH_REGION or None,
         "defaultVoice": DEFAULT_VOICE,
         "recognitionLanguage": DEFAULT_RECOGNITION_LANGUAGE,
+    }
+
+
+@app.get("/api/multimodal/config")
+def multimodal_config() -> dict[str, Any]:
+    return {
+        "configured": has_multimodal_config(),
+        "model": FOUNDRY_MODEL or None,
+        "endpoint": FOUNDRY_ENDPOINT or None,
+        "voiceConfigured": has_speech_config(),
+        "voice": DEFAULT_VOICE,
     }
 
 
@@ -142,8 +161,158 @@ async def transcribe(
             except OSError:
                 pass
 
+@app.post("/api/multimodal/respond")
+async def multimodal_respond(
+    file: UploadFile = File(...),
+    instructions: str = Form(""),
+    language: str = Form(DEFAULT_RECOGNITION_LANGUAGE),
+) -> dict[str, Any]:
+    require_multimodal_config()
+    require_speech_config()
+
+    suffix = (Path(file.filename or "audio.wav").suffix or ".wav").lower()
+    if suffix != ".wav":
+        raise HTTPException(
+            status_code=400,
+            detail="Sube un archivo WAV con el prompt hablado.",
+        )
+
+    audio_bytes = await file.read()
+    if not audio_bytes:
+        raise HTTPException(status_code=400, detail="El archivo de audio esta vacio.")
+
+    temp_path = ""
+    with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as temp_file:
+        temp_path = temp_file.name
+        temp_file.write(audio_bytes)
+
+    try:
+        recognized_prompt = recognize_from_file(temp_path, language)
+    finally:
+        try:
+            os.remove(temp_path)
+        except OSError:
+            pass
+
+    if not recognized_prompt:
+        raise HTTPException(
+            status_code=422,
+            detail="No se reconocio voz en el audio. Sube un WAV PCM (mono, 16 kHz, 16-bit).",
+        )
+
+    system_prompt = instructions.strip() or MULTIMODAL_SYSTEM_PROMPT
+
+    try:
+        answer_text = run_foundry_text_prompt(recognized_prompt, system_prompt)
+    except HTTPException:
+        raise
+    except Exception as exc:  # noqa: BLE001
+        raise HTTPException(
+            status_code=502,
+            detail=f"El modelo de Foundry devolvio un error: {exc}",
+        ) from exc
+
+    answer_audio_b64 = ""
+    content_type = ""
+    if answer_text:
+        answer_audio_b64 = synthesize_to_base64(answer_text)
+        if answer_audio_b64:
+            content_type = "audio/mpeg"
+
+    return {
+        "mode": "azure-foundry",
+        "model": FOUNDRY_MODEL,
+        "recognizedPrompt": recognized_prompt,
+        "answerText": answer_text or "El modelo no devolvio texto.",
+        "audioBase64": answer_audio_b64,
+        "contentType": content_type,
+    }
+
+
+def recognize_from_file(audio_path: str, language: str) -> str:
+    speech_config = build_speech_config()
+    speech_config.speech_recognition_language = language or DEFAULT_RECOGNITION_LANGUAGE
+    audio_config = speechsdk.audio.AudioConfig(filename=audio_path)
+    try:
+        recognizer = speechsdk.SpeechRecognizer(
+            speech_config=speech_config,
+            audio_config=audio_config,
+        )
+        result = recognizer.recognize_once_async().get()
+    except RuntimeError as exc:
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                "No se pudo leer el audio. Sube un WAV PCM sin comprimir "
+                "(mono, 16 kHz, 16-bit)."
+            ),
+        ) from exc
+
+    if result.reason == speechsdk.ResultReason.RecognizedSpeech:
+        return result.text or ""
+    if result.reason == speechsdk.ResultReason.NoMatch:
+        return ""
+
+    detail = get_cancellation_detail(result)
+    raise HTTPException(status_code=502, detail=detail)
+
+
+def run_foundry_text_prompt(prompt: str, system_prompt: str) -> str:
+    from azure.ai.inference import ChatCompletionsClient
+    from azure.ai.inference.models import SystemMessage, UserMessage
+    from azure.core.credentials import AzureKeyCredential
+
+    client = ChatCompletionsClient(
+        endpoint=FOUNDRY_ENDPOINT,
+        credential=AzureKeyCredential(FOUNDRY_API_KEY),
+    )
+
+    try:
+        response = client.complete(
+            model=FOUNDRY_MODEL,
+            messages=[
+                SystemMessage(system_prompt),
+                UserMessage(prompt),
+            ],
+        )
+    finally:
+        client.close()
+
+    if not response.choices:
+        return ""
+    return response.choices[0].message.content or ""
+
+
+def synthesize_to_base64(text: str) -> str:
+    speech_config = build_speech_config()
+    speech_config.speech_synthesis_voice_name = DEFAULT_VOICE
+    speech_config.set_speech_synthesis_output_format(
+        speechsdk.SpeechSynthesisOutputFormat.Audio16Khz32KBitRateMonoMp3
+    )
+    synthesizer = speechsdk.SpeechSynthesizer(speech_config=speech_config, audio_config=None)
+    result = synthesizer.speak_text_async(text).get()
+    if result.reason == speechsdk.ResultReason.SynthesizingAudioCompleted:
+        return base64.b64encode(result.audio_data).decode("utf-8")
+    return ""
+
+
 def has_speech_config() -> bool:
     return bool(SPEECH_KEY and SPEECH_REGION)
+
+
+def has_multimodal_config() -> bool:
+    return bool(FOUNDRY_ENDPOINT and FOUNDRY_API_KEY and FOUNDRY_MODEL)
+
+
+def require_multimodal_config() -> None:
+    if not has_multimodal_config():
+        raise HTTPException(
+            status_code=503,
+            detail=(
+                "Configura FOUNDRY_ENDPOINT, FOUNDRY_API_KEY y FOUNDRY_MODEL "
+                "en backend/.env para usar el modelo multimodal de Foundry."
+            ),
+        )
 
 
 def require_speech_config() -> None:
