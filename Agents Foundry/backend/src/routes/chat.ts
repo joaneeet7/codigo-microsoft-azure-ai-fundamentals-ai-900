@@ -36,7 +36,9 @@ router.post("/", async (req, res) => {
         input: message.trim()
       },
       {
-        body: { agent: { name: agentName.trim(), type: "agent_reference" } }
+        body: {
+          agent_reference: { name: agentName.trim(), type: "agent_reference" }
+        }
       }
     );
 
