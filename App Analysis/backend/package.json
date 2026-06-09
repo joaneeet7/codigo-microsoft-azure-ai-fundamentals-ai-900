@@ -1,0 +1,10 @@
+{
+    "name":  "app-analisis-texto-backend-python",
+    "version":  "0.1.0",
+    "private":  true,
+    "description":  "Backend Python/FastAPI para analisis de texto. Usa requirements.txt para dependencias.",
+    "scripts":  {
+                    "dev":  "py -m uvicorn app.main:app --reload --host 0.0.0.0 --port 3010",
+                    "start":  "py -m uvicorn app.main:app --host 0.0.0.0 --port 3010"
+                }
+}
