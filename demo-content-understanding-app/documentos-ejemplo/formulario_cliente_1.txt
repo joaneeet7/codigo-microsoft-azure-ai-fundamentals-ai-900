@@ -1,0 +1,10 @@
+Formulario de solicitud de marketing
+
+Nombre: Ana Lopez
+Empresa: Contoso Marketing
+Correo: ana@contoso.com
+Telefono: 555-123-4567
+Servicio solicitado: Campana de redes sociales
+Presupuesto estimado: $15,000
+Fecha: 12/06/2026
+Comentarios: Necesitamos una campana para el lanzamiento de un producto nuevo.
