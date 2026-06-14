@@ -177,25 +177,45 @@ def fields_to_dataframe(fields: dict[str, Any]) -> pd.DataFrame:
     return pd.DataFrame(rows)
 
 
-st.set_page_config(page_title="Extractor de formularios", layout="centered")
+st.set_page_config(page_title="Extractor de formularios", layout="wide")
+
+st.markdown(
+    """
+    <style>
+    /* Ocultar barra superior, menu, footer y decoraciones de Streamlit */
+    #MainMenu {visibility: hidden;}
+    header {visibility: hidden;}
+    footer {visibility: hidden;}
+    [data-testid="stHeader"] {display: none;}
+    [data-testid="stToolbar"] {display: none;}
+    [data-testid="stDecoration"] {display: none;}
+    [data-testid="stStatusWidget"] {display: none;}
+
+    /* Ocultar por completo la barra lateral y su control de despliegue */
+    [data-testid="stSidebar"] {display: none;}
+    [data-testid="stSidebarCollapsedControl"] {display: none;}
+    [data-testid="collapsedControl"] {display: none;}
+
+    /* Centrar el contenido principal con un ancho maximo comodo */
+    .block-container {
+        max-width: 880px;
+        margin-left: auto;
+        margin-right: auto;
+        padding-top: 2.5rem;
+        padding-bottom: 3rem;
+    }
+    </style>
+    """,
+    unsafe_allow_html=True,
+)
+
+# La configuracion de Azure se resuelve solo por variables de entorno.
+# Si hay credenciales se usa Azure; en caso contrario se usa el modo demo.
+azure_ready = has_azure_config()
+use_demo = not azure_ready
 
 st.title("Extractor de formularios")
-st.caption("Demo local para ver como un documento se convierte en datos estructurados.")
-
-with st.sidebar:
-    st.header("Configuracion")
-    azure_ready = has_azure_config()
-    use_demo = st.toggle("Usar modo demo", value=not azure_ready)
-
-    if azure_ready:
-        st.success("Credenciales de Azure detectadas.")
-    else:
-        st.info("Sin credenciales de Azure. Puedes usar el modo demo.")
-
-    st.divider()
-    st.write("Campos esperados")
-    for label in FIELD_LABELS.values():
-        st.write(f"- {label}")
+st.caption("Sube un documento y conviertelo en datos estructurados de forma automatica.")
 
 uploaded_file = st.file_uploader(
     "Sube un formulario o documento",
