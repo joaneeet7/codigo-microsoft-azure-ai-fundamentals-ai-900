@@ -35,6 +35,14 @@ http://localhost:8501
 
 ## Que hace la app
 
+La app extrae informacion de varios tipos de archivo usando Azure Content Understanding:
+
+- **Documentos e imagenes:** texto mediante **OCR Read** (`prebuilt-read`).
+- **Audio:** transcripcion y resumen (`prebuilt-audioSearch`).
+- **Video:** transcripcion y segmentacion por escenas (`prebuilt-videoSearch`).
+
+La modalidad se detecta automaticamente segun el archivo que subas.
+
 La app tiene dos modos:
 
 - **Modo demo:** funciona sin Azure y usa datos simulados para explicar el flujo.
@@ -95,19 +103,19 @@ Antes de conectar la app local, necesitas preparar Content Understanding y crear
 
 1. Entra a [Azure AI Foundry](https://ai.azure.com) y abre **Content Understanding Studio**.
 
-![Pantalla inicial de Content Understanding Studio](docs/images/01-cu-studio-home.png)
+![Pantalla inicial de Content Understanding Studio](readme-images/01-cu-studio-home.png)
 
 2. En la parte derecha, en **Recent custom projects**, haz clic en **Get started**.
 
 3. Si aparece la pantalla **Set up your default resource**, revisa que el recurso sea el correcto y haz clic en **Save**.
 
-![Revision del recurso predeterminado](docs/images/02-default-resource-review.png)
+![Revision del recurso predeterminado](readme-images/02-default-resource-review.png)
 
 En esta pantalla Azure configura modelos necesarios para Content Understanding. Puede tardar unos minutos.
 
 4. Cuando termine, llegaras a **Manage projects and analyzers for your custom experience**.
 
-![Lista de proyectos](docs/images/03-project-list.png)
+![Lista de proyectos](readme-images/03-project-list.png)
 
 ### Crear el analyzer
 
@@ -125,14 +133,14 @@ Demo para extraer datos
 Extract content and field with custom schema
 ```
 
-![Crear proyecto personalizado](docs/images/04-create-project.png)
+![Crear proyecto personalizado](readme-images/04-create-project.png)
 
 4. En **Advanced settings**, confirma el recurso de Azure AI Foundry.
 
 5. En **Resource group**, selecciona el mismo grupo donde esta tu recurso de Foundry.
 
 
-![Seleccionar resource group](docs/images/05-resource-group.png)
+![Seleccionar resource group](readme-images/05-resource-group.png)
 
 6. En **Storage account**, selecciona un Storage Account existente.
 
@@ -144,7 +152,7 @@ Performance: Standard
 Redundancy: Locally-redundant storage (LRS)
 ```
 
-![Seleccionar primary service](docs/images/06-primary-service.png)
+![Seleccionar primary service](readme-images/06-primary-service.png)
 
 7. Si te pide **Blob container**, puedes crear o seleccionar un contenedor para los archivos del proyecto.
 
@@ -158,7 +166,7 @@ content-understanding-demo
 
 9. Dentro del proyecto, sube un documento con **Browse for files**.
 
-![Subir archivo](docs/images/07-upload-file.png)
+![Subir archivo](readme-images/07-upload-file.png)
 
 10. Cuando aparezca **Choose a template**, selecciona una plantilla segun el documento:
 
@@ -179,7 +187,7 @@ AI-Powered Field Suggestions
 
 y haz clic en **Save**.
 
-![Seleccionar plantilla Invoice](docs/images/08-template-invoice.png)
+![Seleccionar plantilla Invoice](readme-images/08-template-invoice.png)
 
 11. Revisa el panel **Schema**. Azure sugerira campos para extraer.
 
@@ -217,8 +225,10 @@ AZURE_CONTENT_UNDERSTANDING_API_VERSION=2025-11-01
 ```
 
 3. Reinicia la app local.
-4. En la barra lateral, desactiva **Usar modo demo**.
-5. Sube un PDF o imagen y haz clic en **Extraer informacion**.
+4. Con las credenciales en el `.env`, la app usa Azure automaticamente (sin credenciales cae al modo demo).
+5. Sube un documento, imagen, audio o video y haz clic en **Extraer informacion**.
+
+> El analyzer personalizado (`AZURE_CONTENT_UNDERSTANDING_ANALYZER_ID`) es opcional y solo se aplica a documentos. Si lo dejas vacio, los documentos e imagenes se procesan con **OCR Read** (`prebuilt-read`), el audio con `prebuilt-audioSearch` y el video con `prebuilt-videoSearch`. Puedes sobreescribir cada uno con las variables `AZURE_CU_*_ANALYZER_ID`.
 
 ### Donde copiar cada dato
 

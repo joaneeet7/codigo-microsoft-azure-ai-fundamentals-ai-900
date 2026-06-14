@@ -24,47 +24,140 @@ FIELD_LABELS = {
 }
 
 
+# Analizadores predefinidos de Azure Content Understanding por modalidad.
+# - Imagenes y documentos se procesan con OCR Read (prebuilt-read).
+# - Audio y video usan los analizadores predefinidos de transcripcion.
+# Cada uno se puede sobreescribir por variable de entorno.
+DEFAULT_ANALYZERS = {
+    "document": "prebuilt-read",
+    "image": "prebuilt-read",
+    "audio": "prebuilt-audioSearch",
+    "video": "prebuilt-videoSearch",
+}
+
+ANALYZER_ENV_VARS = {
+    "document": "AZURE_CU_DOCUMENT_ANALYZER_ID",
+    "image": "AZURE_CU_IMAGE_ANALYZER_ID",
+    "audio": "AZURE_CU_AUDIO_ANALYZER_ID",
+    "video": "AZURE_CU_VIDEO_ANALYZER_ID",
+}
+
+MODALITY_LABELS = {
+    "document": "Documento (OCR Read)",
+    "image": "Imagen (OCR Read)",
+    "audio": "Audio (transcripcion)",
+    "video": "Video (transcripcion)",
+}
+
+IMAGE_EXTS = {"png", "jpg", "jpeg", "bmp", "tif", "tiff", "gif", "webp"}
+AUDIO_EXTS = {"mp3", "wav", "m4a", "aac", "ogg", "flac"}
+VIDEO_EXTS = {"mp4", "mov", "avi", "mkv", "webm", "m4v"}
+DOCUMENT_EXTS = {"pdf", "txt", "docx", "doc", "rtf", "html", "htm", "md"}
+
+
 def has_azure_config() -> bool:
     required = [
         "AZURE_CONTENT_UNDERSTANDING_ENDPOINT",
         "AZURE_CONTENT_UNDERSTANDING_KEY",
-        "AZURE_CONTENT_UNDERSTANDING_ANALYZER_ID",
     ]
     return all(os.getenv(name) for name in required)
 
 
-def extract_value_from_text(text: str, label: str) -> str:
-    for line in text.splitlines():
-        if line.lower().startswith(label.lower() + ":"):
-            return line.split(":", 1)[1].strip()
-    return ""
+def detect_modality(file_name: str, content_type: str) -> str:
+    content_type = (content_type or "").lower()
+    if content_type.startswith("image/"):
+        return "image"
+    if content_type.startswith("audio/"):
+        return "audio"
+    if content_type.startswith("video/"):
+        return "video"
+
+    ext = file_name.rsplit(".", 1)[-1].lower() if "." in file_name else ""
+    if ext in IMAGE_EXTS:
+        return "image"
+    if ext in AUDIO_EXTS:
+        return "audio"
+    if ext in VIDEO_EXTS:
+        return "video"
+    return "document"
 
 
-def analyze_with_demo(file_name: str, file_bytes: bytes) -> dict[str, Any]:
-    text = file_bytes.decode("utf-8", errors="ignore")
+def select_analyzer(modality: str) -> str:
+    # Para documentos respetamos un analyzer personalizado si existe;
+    # en caso contrario usamos el predefinido (OCR Read).
+    if modality == "document":
+        custom = os.getenv("AZURE_CONTENT_UNDERSTANDING_ANALYZER_ID")
+        if custom:
+            return custom
+    env_var = ANALYZER_ENV_VARS.get(modality)
+    if env_var and os.getenv(env_var):
+        return os.environ[env_var]
+    return DEFAULT_ANALYZERS.get(modality, "prebuilt-read")
 
-    values = {
-        "nombre": extract_value_from_text(text, "Nombre") or "Ana Lopez",
-        "empresa": extract_value_from_text(text, "Empresa") or "Contoso Marketing",
-        "correo": extract_value_from_text(text, "Correo") or "ana@contoso.com",
-        "telefono": extract_value_from_text(text, "Telefono") or "555-123-4567",
-        "servicio_solicitado": extract_value_from_text(text, "Servicio solicitado") or "Campana de redes sociales",
-        "presupuesto_estimado": extract_value_from_text(text, "Presupuesto estimado") or "$15,000",
-        "fecha": extract_value_from_text(text, "Fecha") or "12/06/2026",
-        "comentarios": extract_value_from_text(text, "Comentarios") or "Datos simulados para clase.",
-    }
+
+def analyze_with_demo(modality: str, file_name: str, file_bytes: bytes) -> dict[str, Any]:
+    if modality == "audio":
+        markdown = (
+            "[00:00] Agente: Gracias por llamar a Contoso, le atiende Ana.\n"
+            "[00:05] Cliente: Hola, tengo una duda sobre mi factura de este mes.\n"
+            "[00:12] Agente: Claro, reviso su cuenta ahora mismo.\n\n"
+            "Resumen: el cliente consulta un cargo en su factura mensual."
+        )
+        return {"mode": "demo", "fileName": file_name, "result": {"contents": [{"markdown": markdown, "kind": "audio"}]}}
+
+    if modality == "video":
+        markdown = (
+            "Escena 1 [00:00-00:08]: Plano de apertura con el logotipo de Contoso.\n"
+            "Escena 2 [00:08-00:25]: Una presentadora explica el nuevo servicio.\n\n"
+            "Transcripcion: Bienvenidos a la demostracion del producto..."
+        )
+        return {"mode": "demo", "fileName": file_name, "result": {"contents": [{"markdown": markdown, "kind": "video"}]}}
+
+    # Documento o imagen -> simulamos texto extraido por OCR Read.
+    text = file_bytes.decode("utf-8", errors="ignore").strip()
+    if not text or modality == "image":
+        text = (
+            "CONTOSO LTD.\n\n# FORMULARIO DE CONTACTO\n\n"
+            "Nombre: Ana Lopez\nEmpresa: Contoso Marketing\nCorreo: ana@contoso.com\n"
+            "Telefono: 555-123-4567\nServicio solicitado: Campana de redes sociales\n"
+            "Presupuesto estimado: $15,000\nFecha: 12/06/2026\n"
+            "Comentarios: Texto simulado por OCR para la clase."
+        )
 
     return {
         "mode": "demo",
         "fileName": file_name,
-        "fields": {key: {"value": value, "confidence": 0.99} for key, value in values.items()},
+        "result": {"contents": [{"markdown": text, "kind": "document"}]},
     }
 
 
-def analyze_with_azure(file_name: str, file_bytes: bytes, content_type: str) -> dict[str, Any]:
+def find_markdown(payload: Any) -> str:
+    parts: list[str] = []
+
+    def walk(node: Any) -> None:
+        if isinstance(node, dict):
+            md = node.get("markdown")
+            if isinstance(md, str) and md.strip():
+                parts.append(md.strip())
+            for value in node.values():
+                walk(value)
+        elif isinstance(node, list):
+            for item in node:
+                walk(item)
+
+    walk(payload)
+    return "\n\n".join(dict.fromkeys(parts))
+
+
+def analyze_with_azure(
+    file_name: str,
+    file_bytes: bytes,
+    content_type: str,
+    analyzer_id: str,
+    max_attempts: int = 60,
+) -> dict[str, Any]:
     endpoint = os.environ["AZURE_CONTENT_UNDERSTANDING_ENDPOINT"].rstrip("/")
     api_key = os.environ["AZURE_CONTENT_UNDERSTANDING_KEY"]
-    analyzer_id = os.environ["AZURE_CONTENT_UNDERSTANDING_ANALYZER_ID"]
     api_version = os.getenv("AZURE_CONTENT_UNDERSTANDING_API_VERSION", "2025-11-01")
 
     analyze_url = (
@@ -85,7 +178,7 @@ def analyze_with_azure(file_name: str, file_bytes: bytes, content_type: str) -> 
         ]
     }
 
-    response = requests.post(analyze_url, headers=headers, json=body, timeout=60)
+    response = requests.post(analyze_url, headers=headers, json=body, timeout=120)
     response.raise_for_status()
 
     operation_location = response.headers.get("operation-location") or response.headers.get("Operation-Location")
@@ -93,7 +186,7 @@ def analyze_with_azure(file_name: str, file_bytes: bytes, content_type: str) -> 
         return response.json()
 
     poll_headers = {"Ocp-Apim-Subscription-Key": api_key}
-    for _ in range(30):
+    for _ in range(max_attempts):
         poll_response = requests.get(operation_location, headers=poll_headers, timeout=30)
         poll_response.raise_for_status()
         payload = poll_response.json()
@@ -215,61 +308,93 @@ azure_ready = has_azure_config()
 use_demo = not azure_ready
 
 st.title("Extractor de formularios")
-st.caption("Sube un documento y conviertelo en datos estructurados de forma automatica.")
+st.caption("Extrae informacion de documentos e imagenes (OCR Read), audio y video de forma automatica.")
 
 uploaded_file = st.file_uploader(
-    "Sube un formulario o documento",
-    type=["pdf", "png", "jpg", "jpeg", "txt"],
+    "Sube un documento, imagen, audio o video",
+    type=[
+        "pdf", "txt", "docx", "doc", "rtf", "html", "md",
+        "png", "jpg", "jpeg", "bmp", "tif", "tiff", "gif", "webp",
+        "mp3", "wav", "m4a", "aac", "ogg", "flac",
+        "mp4", "mov", "avi", "mkv", "webm", "m4v",
+    ],
 )
 
 if uploaded_file:
-    st.write(f"Archivo seleccionado: `{uploaded_file.name}`")
+    modality = detect_modality(uploaded_file.name, uploaded_file.type)
+    file_bytes = uploaded_file.getvalue()
 
-    if uploaded_file.type.startswith("image/"):
+    st.write(f"Archivo seleccionado: `{uploaded_file.name}`  -  **{MODALITY_LABELS.get(modality, modality)}**")
+
+    if modality == "image":
         st.image(uploaded_file, use_container_width=True)
+    elif modality == "audio":
+        st.audio(file_bytes)
+    elif modality == "video":
+        st.video(file_bytes)
     elif uploaded_file.type == "text/plain":
-        st.text_area("Vista previa", uploaded_file.getvalue().decode("utf-8", errors="ignore"), height=220)
+        st.text_area("Vista previa", file_bytes.decode("utf-8", errors="ignore"), height=220)
     else:
         st.info("Vista previa no disponible para este tipo de archivo, pero puedes analizarlo.")
 
     if st.button("Extraer informacion", type="primary"):
-        file_bytes = uploaded_file.getvalue()
+        # Audio y video tardan mas en procesarse: ampliamos los intentos de sondeo.
+        max_attempts = 180 if modality in {"audio", "video"} else 60
+        spinner_msg = {
+            "audio": "Transcribiendo audio...",
+            "video": "Analizando video...",
+        }.get(modality, "Extrayendo texto...")
 
         try:
-            with st.spinner("Analizando documento..."):
+            with st.spinner(spinner_msg):
                 if use_demo:
-                    payload = analyze_with_demo(uploaded_file.name, file_bytes)
+                    payload = analyze_with_demo(modality, uploaded_file.name, file_bytes)
                 else:
-                    if not azure_ready:
-                        st.error("Faltan credenciales de Azure. Activa modo demo o completa el archivo .env.")
-                        st.stop()
-                    payload = analyze_with_azure(uploaded_file.name, file_bytes, uploaded_file.type)
+                    analyzer_id = select_analyzer(modality)
+                    payload = analyze_with_azure(
+                        uploaded_file.name,
+                        file_bytes,
+                        uploaded_file.type,
+                        analyzer_id,
+                        max_attempts=max_attempts,
+                    )
+
+            st.subheader("Resultado")
 
             fields = find_fields(payload)
+            text = find_markdown(payload)
 
-            if not fields:
-                st.warning("No encontre campos estructurados en la respuesta.")
-                with st.expander("Ver respuesta completa"):
-                    st.json(payload)
-                st.stop()
+            if fields:
+                df = fields_to_dataframe(fields)
+                st.dataframe(df, use_container_width=True, hide_index=True)
 
-            df = fields_to_dataframe(fields)
-            st.subheader("Resultado")
-            st.dataframe(df, use_container_width=True, hide_index=True)
+                csv = df.to_csv(index=False).encode("utf-8")
+                st.download_button(
+                    "Descargar CSV",
+                    data=csv,
+                    file_name="datos_extraidos.csv",
+                    mime="text/csv",
+                )
 
-            csv = df.to_csv(index=False).encode("utf-8")
-            st.download_button(
-                "Descargar CSV",
-                data=csv,
-                file_name="datos_extraidos.csv",
-                mime="text/csv",
-            )
+            if text:
+                result_label = "Transcripcion" if modality in {"audio", "video"} else "Texto extraido (OCR Read)"
+                st.markdown(f"**{result_label}**")
+                st.text_area("Contenido", text, height=320, label_visibility="collapsed")
+                st.download_button(
+                    "Descargar texto",
+                    data=text.encode("utf-8"),
+                    file_name="contenido_extraido.txt",
+                    mime="text/plain",
+                )
+
+            if not fields and not text:
+                st.warning("No encontre contenido estructurado ni texto en la respuesta.")
 
             with st.expander("Ver JSON completo"):
                 st.json(payload)
 
         except Exception as exc:
-            st.error("No se pudo analizar el documento.")
+            st.error("No se pudo analizar el archivo.")
             st.exception(exc)
 else:
-    st.info("Para empezar, sube uno de los archivos de ejemplo.")
+    st.info("Para empezar, sube un documento, imagen, audio o video.")
