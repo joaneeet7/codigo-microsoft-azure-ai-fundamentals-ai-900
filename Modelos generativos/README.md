@@ -1,81 +1,63 @@
 # Modelos Generativos
 
-Demo ligera para crear nuevas salidas visuales mediante modelos generativos en Azure AI Foundry / Microsoft Foundry.
+Aplicacion ligera para generar imagenes con modelos generativos en Azure AI Foundry / Azure AI Services.
+
+La app funciona con Python + Streamlit en un solo proceso. El frontend React/Vite y el backend FastAPI originales quedan como referencia, pero ya no son necesarios para ejecutar la aplicacion.
 
 ## Stack
 
-- Backend: Python + FastAPI
-- Frontend: React + Vite + TypeScript
-- Servicio esperado: Azure AI Foundry con un deployment de imagen, por ejemplo `MAI-Image-2.5`
+- App: Python + Streamlit
+- Azure: Azure AI Foundry / Azure AI Services con deployment de imagen
+- Modelo esperado: `MAI-Image-2.5`
+- Modo demo local sin credenciales
 
-## Funciones
+## Funcionalidades
 
 - Generacion de imagen desde prompt
-- Seleccion de tamano y calidad
-- Vista previa en galeria
-- Modo demo local si no hay credenciales configuradas
-- Scripts de Azure CLI para crear y eliminar recursos
+- Seleccion de tamano
+- Seleccion de calidad
+- Vista previa de resultado
+- Descarga de imagen generada
+- Historial visual
+- Modo demo local sin credenciales
 
-## Instalar dependencias
+## Ejecutar con un solo script
 
-```powershell
-cd C:\Users\li-ve\Documents\Codex\2026-06-02\modelos-generativos
-npm.cmd install
-npm.cmd install --prefix frontend
-cd backend
-py -m pip install -r requirements.txt
-cd ..
-```
-
-## Crear Azure con Azure CLI
-
-Inicia sesion y selecciona suscripcion:
+Desde PowerShell:
 
 ```powershell
-az login
-az account set --subscription "<SUBSCRIPTION_ID>"
+cd "D:\Repository\Blockstellart\codigo-microsoft-azure-ai-fundamentals-ai-900\Modelos generativos"
+.\start.ps1
 ```
 
-Ejecuta el script:
+El script crea `.venv`, instala `requirements.txt` y levanta Streamlit.
+
+URL local:
+
+- http://localhost:8502
+
+Para omitir la instalacion de dependencias cuando ya existe el entorno:
 
 ```powershell
-cd C:\Users\li-ve\Documents\Codex\2026-06-02\modelos-generativos
-.\scripts\create-azure.ps1
+.\start.ps1 -SkipInstall
 ```
 
-El script crea:
+## Configurar credenciales
 
-- Resource group: `rg-modelos-generativos`
-- Recurso Azure AI Services: `aifoundry-modelos-img-eastus`
-- Deployment: `mai-image-2-5`
-- Modelo: `MAI-Image-2.5`
-- Archivo: `backend/.env`
+La app lee las credenciales desde:
 
-Puedes cambiar valores:
-
-```powershell
-.\scripts\create-azure.ps1 `
-  -ResourceGroup rg-modelos-generativos `
-  -Location eastus `
-  -AccountName aifoundry-modelos-img-eastus `
-  -DeploymentName mai-image-2-5 `
-  -ModelName "MAI-Image-2.5" `
-  -ModelVersion "2026-06-02" `
-  -SkuName GlobalStandard `
-  -SkuCapacity 1
+```text
+backend\.env
 ```
 
-`setup-azure.ps1` se conserva como alias seguro y llama internamente a `create-azure.ps1`.
-
-## Configuracion manual
-
-Si no usas el script, crea:
+Copia el archivo de ejemplo:
 
 ```powershell
 copy backend\.env.example backend\.env
+notepad backend\.env
 ```
 
-Ejemplo `.env`:
+Variables:
 
 ```env
 AZURE_OPENAI_ENDPOINT=https://<tu-recurso>.cognitiveservices.azure.com
@@ -84,39 +66,99 @@ AZURE_OPENAI_DEPLOYMENT_NAME=mai-image-2-5
 AZURE_OPENAI_MODEL_NAME=MAI-Image-2.5
 IMAGE_PROVIDER=mai
 AZURE_OPENAI_API_VERSION=2026-06-02
-PORT=3030
-ALLOWED_ORIGIN=http://localhost:5176
 ```
 
-Si dejas endpoint/key vacios, el backend usa modo demo local y devuelve una imagen SVG generada por codigo.
+Si `AZURE_OPENAI_ENDPOINT` o `AZURE_OPENAI_API_KEY` estan vacios, la aplicacion arranca en modo demo local.
 
-## Eliminar Azure con Azure CLI
-
-Borrar el resource group completo:
+## Crear Azure con Azure CLI
 
 ```powershell
-.\scripts\delete-azure.ps1 -NoWait
+az group create `
+  --name rg-modelos-generativos `
+  --location eastus
 ```
-
-En macOS/Linux:
-
-```bash
-./scripts/delete-azure.sh --no-wait
-```
-
-Borrar y luego intentar purgar el recurso soft-deleted:
 
 ```powershell
-.\scripts\delete-azure.ps1 -NoWait -Purge
+az cognitiveservices account create `
+  --name aifoundry-modelos-img-eastus `
+  --resource-group rg-modelos-generativos `
+  --location eastus `
+  --kind AIServices `
+  --sku S0 `
+  --custom-domain aifoundry-modelos-img-eastus `
+  --yes
 ```
 
-En macOS/Linux:
-
-```bash
-./scripts/delete-azure.sh --no-wait --purge
+```powershell
+az cognitiveservices account deployment create `
+  --resource-group rg-modelos-generativos `
+  --name aifoundry-modelos-img-eastus `
+  --deployment-name mai-image-2-5 `
+  --model-name "MAI-Image-2.5" `
+  --model-version "2026-06-02" `
+  --model-format Microsoft `
+  --sku-name GlobalStandard `
+  --sku-capacity 1 `
+  -o jsonc
 ```
 
-Comandos manuales equivalentes:
+```powershell
+az cognitiveservices account show `
+  --name aifoundry-modelos-img-eastus `
+  --resource-group rg-modelos-generativos `
+  --query properties.endpoint `
+  -o tsv
+```
+
+```powershell
+az cognitiveservices account keys list `
+  --name aifoundry-modelos-img-eastus `
+  --resource-group rg-modelos-generativos `
+  --query key1 `
+  -o tsv
+```
+
+## Crear servicios desde el portal de Azure
+
+Pasos para crear el recurso sin CLI:
+
+1. Entra a [Azure Portal](https://portal.azure.com).
+2. Busca `Azure AI services` y selecciona crear un recurso.
+3. Completa los campos principales:
+   - Subscription: tu suscripcion.
+   - Resource group: crea `rg-modelos-generativos` o usa uno existente.
+   - Region: por ejemplo `East US`, o una region disponible para tu suscripcion.
+   - Name: un nombre unico, por ejemplo `aifoundry-modelos-img-eastus`.
+   - Pricing tier: `S0` o el tier permitido por tu cuenta.
+4. Revisa y crea el recurso.
+5. Abre el recurso creado y entra a `Keys and Endpoint`.
+6. Copia `Endpoint` en `AZURE_OPENAI_ENDPOINT`.
+7. Copia `KEY 1` en `AZURE_OPENAI_API_KEY`.
+8. Abre Azure AI Foundry.
+9. En el catalogo de modelos, busca y despliega `MAI-Image-2.5`.
+10. Usa como nombre de deployment `mai-image-2-5`.
+11. Guarda estos valores en `backend\.env`:
+
+```env
+AZURE_OPENAI_ENDPOINT=https://<tu-recurso>.cognitiveservices.azure.com
+AZURE_OPENAI_API_KEY=<tu-key>
+AZURE_OPENAI_DEPLOYMENT_NAME=mai-image-2-5
+AZURE_OPENAI_MODEL_NAME=MAI-Image-2.5
+IMAGE_PROVIDER=mai
+AZURE_OPENAI_API_VERSION=2026-06-02
+```
+
+12. Ejecuta `.\start.ps1` y abre http://localhost:8502.
+
+Notas:
+
+- Para deployments MAI, la app normaliza internamente el endpoint de `.cognitiveservices.azure.com` a `.services.ai.azure.com`.
+- Necesitas permisos de Azure RBAC para crear recursos y deployments, por ejemplo `Owner`, `Contributor` o permisos equivalentes.
+- Si usas otro deployment compatible con Azure OpenAI Images, cambia `IMAGE_PROVIDER=azure-openai`.
+
+## Eliminar recursos
+
+Borrar todo el resource group:
 
 ```powershell
 az group delete `
@@ -125,11 +167,7 @@ az group delete `
   --no-wait
 ```
 
-Si el nombre queda reservado por soft-delete:
-
-```powershell
-az cognitiveservices account list-deleted -o table
-```
+Si el nombre queda en soft-delete y quieres purgarlo:
 
 ```powershell
 az cognitiveservices account purge `
@@ -138,27 +176,42 @@ az cognitiveservices account purge `
   --name aifoundry-modelos-img-eastus
 ```
 
-## Ejecutar manualmente
-
-Backend:
+Con script:
 
 ```powershell
-cd C:\Users\li-ve\Documents\Codex\2026-06-02\modelos-generativos
-npm.cmd run dev:backend
+.\scripts\delete-azure.ps1 -NoWait
 ```
 
-Frontend, en otra terminal:
+Para borrar e intentar purgar soft-delete:
 
 ```powershell
-cd C:\Users\li-ve\Documents\Codex\2026-06-02\modelos-generativos
-npm.cmd run dev:frontend
+.\scripts\delete-azure.ps1 -NoWait -Purge
 ```
 
-URLs:
+## Detener la app
 
-- Frontend: http://localhost:5176
-- Backend: http://localhost:3030
+Si la app corre en la misma terminal:
+
+```text
+Ctrl + C
+```
+
+Si quieres detenerla desde otra terminal:
+
+```powershell
+Stop-Process -Id (Get-NetTCPConnection -LocalPort 8502 -State Listen).OwningProcess
+```
 
 ## Referencia
 
-Microsoft Learn documenta image generation en Foundry Models usando modelos de imagen como `MAI-Image-2.5` y endpoints `/mai/v1/images/generations`.
+Para deployments MAI, la app usa el endpoint:
+
+```text
+/mai/v1/images/generations
+```
+
+Para deployments Azure OpenAI Images, la app usa:
+
+```text
+/openai/deployments/<deployment>/images/generations
+```
