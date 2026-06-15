@@ -1,3 +1,9 @@
+import warnings
+
+# Silenciar el aviso de compatibilidad de urllib3 con LibreSSL (Python del sistema en macOS).
+# Es inofensivo y no afecta al funcionamiento. Debe ir antes de importar requests/urllib3.
+warnings.filterwarnings("ignore", message="urllib3 v2 only supports OpenSSL")
+
 import base64
 import os
 import textwrap
@@ -17,11 +23,11 @@ COMPONENT_DIR = ROOT_DIR / "streamlit_component" / "image_studio"
 image_studio_component = components.declare_component("image_studio", path=str(COMPONENT_DIR))
 load_dotenv(ENV_PATH, override=True, encoding="utf-8-sig")
 
-AZURE_OPENAI_ENDPOINT = os.getenv("AZURE_OPENAI_ENDPOINT", "").strip().rstrip("/")
-AZURE_OPENAI_API_KEY = os.getenv("AZURE_OPENAI_API_KEY", "").strip()
-AZURE_OPENAI_DEPLOYMENT_NAME = os.getenv("AZURE_OPENAI_DEPLOYMENT_NAME", "gpt-image-1").strip()
-AZURE_OPENAI_MODEL_NAME = os.getenv("AZURE_OPENAI_MODEL_NAME", AZURE_OPENAI_DEPLOYMENT_NAME).strip()
-AZURE_OPENAI_API_VERSION = os.getenv("AZURE_OPENAI_API_VERSION", "2025-04-01-preview").strip()
+MICROSOFT_FOUNDRY_ENDPOINT = os.getenv("MICROSOFT_FOUNDRY_ENDPOINT", "").strip().rstrip("/")
+MICROSOFT_FOUNDRY_API_KEY = os.getenv("MICROSOFT_FOUNDRY_API_KEY", "").strip()
+MICROSOFT_FOUNDRY_DEPLOYMENT_NAME = os.getenv("MICROSOFT_FOUNDRY_DEPLOYMENT_NAME", "gpt-image-1").strip()
+MICROSOFT_FOUNDRY_MODEL_NAME = os.getenv("MICROSOFT_FOUNDRY_MODEL_NAME", MICROSOFT_FOUNDRY_DEPLOYMENT_NAME).strip()
+MICROSOFT_FOUNDRY_API_VERSION = os.getenv("MICROSOFT_FOUNDRY_API_VERSION", "2025-04-01-preview").strip()
 IMAGE_PROVIDER = os.getenv("IMAGE_PROVIDER", "").strip().lower()
 
 ImageSize = Literal["1024x1024", "1024x1536", "1536x1024"]
@@ -31,13 +37,13 @@ VALID_QUALITIES = {"low", "medium", "high"}
 
 
 def has_azure_config() -> bool:
-    return bool(AZURE_OPENAI_ENDPOINT and AZURE_OPENAI_API_KEY and AZURE_OPENAI_DEPLOYMENT_NAME)
+    return bool(MICROSOFT_FOUNDRY_ENDPOINT and MICROSOFT_FOUNDRY_API_KEY and MICROSOFT_FOUNDRY_DEPLOYMENT_NAME)
 
 
 def resolved_provider() -> str:
     if IMAGE_PROVIDER in {"azure-openai", "mai"}:
         return IMAGE_PROVIDER
-    if AZURE_OPENAI_DEPLOYMENT_NAME.lower().startswith("mai-") or AZURE_OPENAI_MODEL_NAME.lower().startswith("mai-"):
+    if MICROSOFT_FOUNDRY_DEPLOYMENT_NAME.lower().startswith("mai-") or MICROSOFT_FOUNDRY_MODEL_NAME.lower().startswith("mai-"):
         return "mai"
     return "azure-openai"
 
@@ -81,7 +87,7 @@ def generate_image(prompt: str, size: str, quality: str) -> dict[str, Any]:
 
 
 def generate_with_mai(prompt: str, size: ImageSize, quality: ImageQuality) -> dict[str, Any]:
-    endpoint = normalize_mai_endpoint(AZURE_OPENAI_ENDPOINT)
+    endpoint = normalize_mai_endpoint(MICROSOFT_FOUNDRY_ENDPOINT)
     width, height = mai_dimensions(size)
     url = f"{endpoint}/mai/v1/images/generations"
 
@@ -89,19 +95,21 @@ def generate_with_mai(prompt: str, size: ImageSize, quality: ImageQuality) -> di
         response = requests.post(
             url,
             headers={
-                "api-key": AZURE_OPENAI_API_KEY,
+                "api-key": MICROSOFT_FOUNDRY_API_KEY,
                 "Content-Type": "application/json",
             },
             json={
-                "model": AZURE_OPENAI_DEPLOYMENT_NAME,
+                "model": MICROSOFT_FOUNDRY_DEPLOYMENT_NAME,
                 "prompt": prompt,
                 "width": width,
                 "height": height,
             },
             timeout=120,
         )
+    except requests.Timeout as exc:
+        raise ValueError(f"Azure tardo demasiado en responder (timeout de la peticion). Detalle: {exc}") from exc
     except requests.RequestException as exc:
-        raise ValueError("No se pudo conectar con Azure para generar la imagen. Revisa endpoint, red y credenciales.") from exc
+        raise ValueError(f"No se pudo conectar con Azure para generar la imagen. Revisa endpoint, red y credenciales. Detalle: {exc}") from exc
 
     data = parse_json_response(response)
     if not response.ok:
@@ -113,22 +121,22 @@ def generate_with_mai(prompt: str, size: ImageSize, quality: ImageQuality) -> di
         "prompt": prompt,
         "size": f"{width}x{height}",
         "quality": quality,
-        "deployment": AZURE_OPENAI_DEPLOYMENT_NAME,
+        "deployment": MICROSOFT_FOUNDRY_DEPLOYMENT_NAME,
     }
 
 
 def generate_with_azure_openai(prompt: str, size: ImageSize, quality: ImageQuality) -> dict[str, Any]:
     url = (
-        f"{AZURE_OPENAI_ENDPOINT}/openai/deployments/"
-        f"{AZURE_OPENAI_DEPLOYMENT_NAME}/images/generations"
-        f"?api-version={AZURE_OPENAI_API_VERSION}"
+        f"{MICROSOFT_FOUNDRY_ENDPOINT}/openai/deployments/"
+        f"{MICROSOFT_FOUNDRY_DEPLOYMENT_NAME}/images/generations"
+        f"?api-version={MICROSOFT_FOUNDRY_API_VERSION}"
     )
 
     try:
         response = requests.post(
             url,
             headers={
-                "api-key": AZURE_OPENAI_API_KEY,
+                "api-key": MICROSOFT_FOUNDRY_API_KEY,
                 "Content-Type": "application/json",
             },
             json={
@@ -139,8 +147,10 @@ def generate_with_azure_openai(prompt: str, size: ImageSize, quality: ImageQuali
             },
             timeout=120,
         )
+    except requests.Timeout as exc:
+        raise ValueError(f"Azure tardo demasiado en responder (timeout de la peticion). Detalle: {exc}") from exc
     except requests.RequestException as exc:
-        raise ValueError("No se pudo conectar con Azure para generar la imagen. Revisa endpoint, red y credenciales.") from exc
+        raise ValueError(f"No se pudo conectar con Azure para generar la imagen. Revisa endpoint, red y credenciales. Detalle: {exc}") from exc
 
     data = parse_json_response(response)
     if not response.ok:
@@ -152,7 +162,7 @@ def generate_with_azure_openai(prompt: str, size: ImageSize, quality: ImageQuali
         "prompt": prompt,
         "size": size,
         "quality": quality,
-        "deployment": AZURE_OPENAI_DEPLOYMENT_NAME,
+        "deployment": MICROSOFT_FOUNDRY_DEPLOYMENT_NAME,
     }
 
 
@@ -176,17 +186,17 @@ def translate_azure_error(message: str) -> str:
     normalized = message.lower()
     if "deployment" in normalized and "does not exist" in normalized:
         return (
-            f"El deployment '{AZURE_OPENAI_DEPLOYMENT_NAME}' no existe o todavia no esta disponible en Azure. "
+            f"El deployment '{MICROSOFT_FOUNDRY_DEPLOYMENT_NAME}' no existe o todavia no esta disponible en Azure. "
             "Verifica que el nombre en backend\\.env coincida exactamente con el deployment creado en Azure AI Foundry. "
             "Si lo acabas de crear, espera unos minutos y vuelve a intentar."
         )
     if "api deployment" in normalized and "does not exist" in normalized:
         return (
-            f"El deployment '{AZURE_OPENAI_DEPLOYMENT_NAME}' no existe o todavia no esta disponible en Azure. "
+            f"El deployment '{MICROSOFT_FOUNDRY_DEPLOYMENT_NAME}' no existe o todavia no esta disponible en Azure. "
             "Revisa el nombre del deployment en Azure AI Foundry y en backend\\.env."
         )
     if "unauthorized" in normalized or "access denied" in normalized or "permission" in normalized:
-        return "Azure rechazo la solicitud por permisos o credenciales. Revisa AZURE_OPENAI_API_KEY y el acceso al recurso."
+        return "Azure rechazo la solicitud por permisos o credenciales. Revisa MICROSOFT_FOUNDRY_API_KEY y el acceso al recurso."
     if "not found" in normalized:
         return "Azure no encontro el recurso o deployment configurado. Revisa endpoint, deployment y region."
     if "rate limit" in normalized or "too many requests" in normalized:
@@ -293,10 +303,10 @@ def main() -> None:
     payload = image_studio_component(
         css=css,
         configured=has_azure_config(),
-        deployment=AZURE_OPENAI_DEPLOYMENT_NAME,
-        model=AZURE_OPENAI_MODEL_NAME,
+        deployment=MICROSOFT_FOUNDRY_DEPLOYMENT_NAME,
+        model=MICROSOFT_FOUNDRY_MODEL_NAME,
         provider=resolved_provider(),
-        apiVersion=AZURE_OPENAI_API_VERSION,
+        apiVersion=MICROSOFT_FOUNDRY_API_VERSION,
         result=st.session_state.result,
         history=st.session_state.history,
         error=st.session_state.error,

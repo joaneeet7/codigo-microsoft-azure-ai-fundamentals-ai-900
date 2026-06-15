@@ -15,10 +15,10 @@ COMPONENT_DIR = ROOT_DIR / "streamlit_component" / "visual_interpreter"
 visual_interpreter_component = components.declare_component("visual_interpreter", path=str(COMPONENT_DIR))
 load_dotenv(ENV_PATH, override=True, encoding="utf-8-sig")
 
-AZURE_OPENAI_ENDPOINT = os.getenv("AZURE_OPENAI_ENDPOINT", "").strip().rstrip("/")
-AZURE_OPENAI_API_KEY = os.getenv("AZURE_OPENAI_API_KEY", "").strip()
-AZURE_OPENAI_DEPLOYMENT_NAME = os.getenv("AZURE_OPENAI_DEPLOYMENT_NAME", "gpt-4o-mini").strip()
-AZURE_OPENAI_API_VERSION = os.getenv("AZURE_OPENAI_API_VERSION", "2024-10-21").strip()
+MICROSOFT_FOUNDRY_ENDPOINT = os.getenv("MICROSOFT_FOUNDRY_ENDPOINT", "").strip().rstrip("/")
+MICROSOFT_FOUNDRY_API_KEY = os.getenv("MICROSOFT_FOUNDRY_API_KEY", "").strip()
+MICROSOFT_FOUNDRY_DEPLOYMENT_NAME = os.getenv("MICROSOFT_FOUNDRY_DEPLOYMENT_NAME", "gpt-4o-mini").strip()
+MICROSOFT_FOUNDRY_API_VERSION = os.getenv("MICROSOFT_FOUNDRY_API_VERSION", "2024-10-21").strip()
 AZURE_IMAGE_DETAIL = os.getenv("AZURE_IMAGE_DETAIL", "low").strip().lower()
 
 MAX_IMAGE_BYTES = 20 * 1024 * 1024
@@ -26,7 +26,7 @@ SUPPORTED_TYPES = {"image/png", "image/jpeg", "image/webp"}
 
 
 def has_azure_config() -> bool:
-    return bool(AZURE_OPENAI_ENDPOINT and AZURE_OPENAI_API_KEY and AZURE_OPENAI_DEPLOYMENT_NAME)
+    return bool(MICROSOFT_FOUNDRY_ENDPOINT and MICROSOFT_FOUNDRY_API_KEY and MICROSOFT_FOUNDRY_DEPLOYMENT_NAME)
 
 
 def validate_image(file_name: str, content_type: str, image_bytes: bytes) -> None:
@@ -59,16 +59,16 @@ def analyze_with_azure(prompt: str, file_name: str, content_type: str, image_byt
     image_data = base64.b64encode(image_bytes).decode("utf-8")
     detail = AZURE_IMAGE_DETAIL if AZURE_IMAGE_DETAIL in {"low", "high", "auto"} else "low"
     url = (
-        f"{AZURE_OPENAI_ENDPOINT}/openai/deployments/"
-        f"{AZURE_OPENAI_DEPLOYMENT_NAME}/chat/completions"
-        f"?api-version={AZURE_OPENAI_API_VERSION}"
+        f"{MICROSOFT_FOUNDRY_ENDPOINT}/openai/deployments/"
+        f"{MICROSOFT_FOUNDRY_DEPLOYMENT_NAME}/chat/completions"
+        f"?api-version={MICROSOFT_FOUNDRY_API_VERSION}"
     )
 
     try:
         response = requests.post(
             url,
             headers={
-                "api-key": AZURE_OPENAI_API_KEY,
+                "api-key": MICROSOFT_FOUNDRY_API_KEY,
                 "Content-Type": "application/json",
             },
             json={
@@ -113,7 +113,7 @@ def analyze_with_azure(prompt: str, file_name: str, content_type: str, image_byt
         "fileName": file_name,
         "contentType": content_type,
         "bytes": len(image_bytes),
-        "deployment": AZURE_OPENAI_DEPLOYMENT_NAME,
+        "deployment": MICROSOFT_FOUNDRY_DEPLOYMENT_NAME,
     }
 
 
@@ -141,11 +141,11 @@ def translate_azure_error(message: str) -> str:
     normalized = message.lower()
     if "deployment" in normalized and "does not exist" in normalized:
         return (
-            f"El deployment '{AZURE_OPENAI_DEPLOYMENT_NAME}' no existe o todavia no esta disponible en Azure. "
+            f"El deployment '{MICROSOFT_FOUNDRY_DEPLOYMENT_NAME}' no existe o todavia no esta disponible en Azure. "
             "Verifica que el nombre en backend\\.env coincida exactamente con el deployment creado."
         )
     if "unauthorized" in normalized or "access denied" in normalized or "permission" in normalized:
-        return "Azure rechazo la solicitud por permisos o credenciales. Revisa AZURE_OPENAI_API_KEY y el acceso al recurso."
+        return "Azure rechazo la solicitud por permisos o credenciales. Revisa MICROSOFT_FOUNDRY_API_KEY y el acceso al recurso."
     if "content filter" in normalized or "filtered" in normalized:
         return "Azure bloqueo la solicitud por filtros de contenido. Ajusta el prompt o usa otra imagen."
     if "rate limit" in normalized or "too many requests" in normalized:
@@ -218,8 +218,8 @@ def main() -> None:
     payload = visual_interpreter_component(
         css=css,
         configured=has_azure_config(),
-        deployment=AZURE_OPENAI_DEPLOYMENT_NAME,
-        apiVersion=AZURE_OPENAI_API_VERSION,
+        deployment=MICROSOFT_FOUNDRY_DEPLOYMENT_NAME,
+        apiVersion=MICROSOFT_FOUNDRY_API_VERSION,
         result=st.session_state.result,
         error=st.session_state.error,
         completedRequestId=st.session_state.completed_request_id,

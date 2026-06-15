@@ -38,9 +38,9 @@
     <div id="root"></div>
     <script>
       const examples = [
-        "Una ciudad futurista al amanecer, con arquitectura sustentable, jardines verticales y transporte autonomo, estilo editorial premium.",
-        "Producto tecnologico flotando sobre una superficie de vidrio negro, iluminacion cinematografica, fondo minimalista azul y turquesa.",
-        "Ilustracion conceptual de inteligencia artificial creando nuevas ideas visuales, composicion sofisticada, alto detalle."
+        "Una ciudad futurista al amanecer, con arquitectura sostenible, jardines verticales y transporte autónomo, estilo editorial premium.",
+        "Producto tecnológico flotando sobre una superficie de vidrio negro, iluminación cinematográfica, fondo minimalista azul y turquesa.",
+        "Ilustración conceptual de inteligencia artificial creando nuevas ideas visuales, composición sofisticada, alto detalle."
       ];
 
       let args = {};
@@ -167,10 +167,10 @@
                         <option value="high" ${quality === "high" ? "selected" : ""}>High</option>
                       </select>
                     </label>
-                    <span>${promptLength} caracteres</span>
+                    <span id="prompt-count">${promptLength} caracteres</span>
                   </div>
 
-                  <button class="primary-action" type="submit" ${prompt.trim() && !isGenerating ? "" : "disabled"}>
+                  <button class="primary-action" id="generate-btn" type="submit" ${prompt.trim() && !isGenerating ? "" : "disabled"}>
                     ${isGenerating ? icon("palette", 18, "spin") : icon("palette", 18)}
                     ${isGenerating ? "Generando salida visual" : "Generar salida visual"}
                   </button>
@@ -206,13 +206,14 @@
           </main>
         `;
 
+        // Actualizamos solo el contador y el boton sin re-renderizar el textarea,
+        // para no interrumpir la composicion de acentos y teclas muertas.
         document.getElementById("prompt-input").addEventListener("input", (event) => {
           prompt = event.target.value;
-          const cursor = event.target.selectionStart;
-          render();
-          const next = document.getElementById("prompt-input");
-          next.focus();
-          next.setSelectionRange(cursor, cursor);
+          const count = document.getElementById("prompt-count");
+          if (count) count.textContent = `${prompt.trim().length} caracteres`;
+          const generateBtn = document.getElementById("generate-btn");
+          if (generateBtn) generateBtn.disabled = !(prompt.trim() && !isGenerating);
         });
 
         document.getElementById("size-select").addEventListener("change", (event) => {

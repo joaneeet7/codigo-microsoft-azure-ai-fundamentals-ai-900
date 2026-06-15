@@ -72,14 +72,14 @@ notepad backend\.env
 Variables:
 
 ```env
-AZURE_OPENAI_ENDPOINT=https://<tu-recurso>.openai.azure.com
-AZURE_OPENAI_API_KEY=<tu-key>
-AZURE_OPENAI_DEPLOYMENT_NAME=gpt-4o-mini
-AZURE_OPENAI_API_VERSION=2024-10-21
+MICROSOFT_FOUNDRY_ENDPOINT=https://<tu-recurso>.openai.azure.com
+MICROSOFT_FOUNDRY_API_KEY=<tu-key>
+MICROSOFT_FOUNDRY_DEPLOYMENT_NAME=gpt-4o-mini
+MICROSOFT_FOUNDRY_API_VERSION=2024-10-21
 AZURE_IMAGE_DETAIL=low
 ```
 
-Si `AZURE_OPENAI_ENDPOINT` o `AZURE_OPENAI_API_KEY` estan vacios, la aplicacion arranca en modo demo local.
+Si `MICROSOFT_FOUNDRY_ENDPOINT` o `MICROSOFT_FOUNDRY_API_KEY` estan vacios, la aplicacion arranca en modo demo local.
 
 ## Crear Azure con Azure CLI
 
@@ -185,18 +185,18 @@ Pasos para crear el recurso sin CLI:
    - Pricing tier: `S0` o el tier permitido por tu cuenta.
 4. Revisa y crea el recurso.
 5. Abre el recurso creado y entra a `Keys and Endpoint`.
-6. Copia `Endpoint` en `AZURE_OPENAI_ENDPOINT`.
-7. Copia `KEY 1` en `AZURE_OPENAI_API_KEY`.
+6. Copia `Endpoint` en `MICROSOFT_FOUNDRY_ENDPOINT`.
+7. Copia `KEY 1` en `MICROSOFT_FOUNDRY_API_KEY`.
 8. Abre Azure AI Foundry.
 9. En deployments, crea un deployment de `gpt-4o-mini` o `gpt-4o`.
 10. Usa como nombre de deployment `gpt-4o-mini`.
 11. Guarda estos valores en `backend\.env`:
 
 ```env
-AZURE_OPENAI_ENDPOINT=https://<tu-recurso>.openai.azure.com
-AZURE_OPENAI_API_KEY=<tu-key>
-AZURE_OPENAI_DEPLOYMENT_NAME=gpt-4o-mini
-AZURE_OPENAI_API_VERSION=2024-10-21
+MICROSOFT_FOUNDRY_ENDPOINT=https://<tu-recurso>.openai.azure.com
+MICROSOFT_FOUNDRY_API_KEY=<tu-key>
+MICROSOFT_FOUNDRY_DEPLOYMENT_NAME=gpt-4o-mini
+MICROSOFT_FOUNDRY_API_VERSION=2024-10-21
 AZURE_IMAGE_DETAIL=low
 ```
 

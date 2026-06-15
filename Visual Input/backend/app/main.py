@@ -11,10 +11,10 @@ from fastapi.middleware.cors import CORSMiddleware
 BACKEND_DIR = Path(__file__).resolve().parents[1]
 load_dotenv(BACKEND_DIR / ".env", override=True, encoding="utf-8-sig")
 
-AZURE_OPENAI_ENDPOINT = os.getenv("AZURE_OPENAI_ENDPOINT", "").strip().rstrip("/")
-AZURE_OPENAI_API_KEY = os.getenv("AZURE_OPENAI_API_KEY", "").strip()
-AZURE_OPENAI_DEPLOYMENT_NAME = os.getenv("AZURE_OPENAI_DEPLOYMENT_NAME", "gpt-4o-mini").strip()
-AZURE_OPENAI_API_VERSION = os.getenv("AZURE_OPENAI_API_VERSION", "2024-10-21").strip()
+MICROSOFT_FOUNDRY_ENDPOINT = os.getenv("MICROSOFT_FOUNDRY_ENDPOINT", "").strip().rstrip("/")
+MICROSOFT_FOUNDRY_API_KEY = os.getenv("MICROSOFT_FOUNDRY_API_KEY", "").strip()
+MICROSOFT_FOUNDRY_DEPLOYMENT_NAME = os.getenv("MICROSOFT_FOUNDRY_DEPLOYMENT_NAME", "gpt-4o-mini").strip()
+MICROSOFT_FOUNDRY_API_VERSION = os.getenv("MICROSOFT_FOUNDRY_API_VERSION", "2024-10-21").strip()
 ALLOWED_ORIGIN = os.getenv("ALLOWED_ORIGIN", "http://localhost:5178")
 AZURE_IMAGE_DETAIL = os.getenv("AZURE_IMAGE_DETAIL", "low").strip().lower()
 
@@ -41,8 +41,8 @@ def health() -> dict[str, bool]:
 def config() -> dict[str, Any]:
     return {
         "configured": has_azure_config(),
-        "deployment": AZURE_OPENAI_DEPLOYMENT_NAME,
-        "apiVersion": AZURE_OPENAI_API_VERSION,
+        "deployment": MICROSOFT_FOUNDRY_DEPLOYMENT_NAME,
+        "apiVersion": MICROSOFT_FOUNDRY_API_VERSION,
         "supportedTypes": sorted(SUPPORTED_TYPES),
     }
 
@@ -62,7 +62,7 @@ async def analyze_visual(
 
 
 def has_azure_config() -> bool:
-    return bool(AZURE_OPENAI_ENDPOINT and AZURE_OPENAI_API_KEY and AZURE_OPENAI_DEPLOYMENT_NAME)
+    return bool(MICROSOFT_FOUNDRY_ENDPOINT and MICROSOFT_FOUNDRY_API_KEY and MICROSOFT_FOUNDRY_DEPLOYMENT_NAME)
 
 
 def validate_image(image: UploadFile, image_bytes: bytes) -> None:
@@ -78,15 +78,15 @@ def analyze_with_azure(prompt: str, image: UploadFile, image_bytes: bytes) -> di
     image_data = base64.b64encode(image_bytes).decode("utf-8")
     data_url = f"{image.content_type};base64,{image_data}"
     url = (
-        f"{AZURE_OPENAI_ENDPOINT}/openai/deployments/"
-        f"{AZURE_OPENAI_DEPLOYMENT_NAME}/chat/completions"
-        f"?api-version={AZURE_OPENAI_API_VERSION}"
+        f"{MICROSOFT_FOUNDRY_ENDPOINT}/openai/deployments/"
+        f"{MICROSOFT_FOUNDRY_DEPLOYMENT_NAME}/chat/completions"
+        f"?api-version={MICROSOFT_FOUNDRY_API_VERSION}"
     )
 
     response = requests.post(
         url,
         headers={
-            "api-key": AZURE_OPENAI_API_KEY,
+            "api-key": MICROSOFT_FOUNDRY_API_KEY,
             "Content-Type": "application/json",
         },
         json={
@@ -127,7 +127,7 @@ def analyze_with_azure(prompt: str, image: UploadFile, image_bytes: bytes) -> di
         "fileName": image.filename,
         "contentType": image.content_type,
         "bytes": len(image_bytes),
-        "deployment": AZURE_OPENAI_DEPLOYMENT_NAME,
+        "deployment": MICROSOFT_FOUNDRY_DEPLOYMENT_NAME,
     }
 
 

@@ -74,15 +74,15 @@ notepad backend\.env
 Variables:
 
 ```env
-AZURE_OPENAI_ENDPOINT=https://<tu-recurso>.cognitiveservices.azure.com
-AZURE_OPENAI_API_KEY=<tu-key>
-AZURE_OPENAI_DEPLOYMENT_NAME=mai-image-2-5
-AZURE_OPENAI_MODEL_NAME=MAI-Image-2.5
+MICROSOFT_FOUNDRY_ENDPOINT=https://<tu-recurso>.cognitiveservices.azure.com
+MICROSOFT_FOUNDRY_API_KEY=<tu-key>
+MICROSOFT_FOUNDRY_DEPLOYMENT_NAME=mai-image-2-5
+MICROSOFT_FOUNDRY_MODEL_NAME=MAI-Image-2.5
 IMAGE_PROVIDER=mai
-AZURE_OPENAI_API_VERSION=2026-06-02
+MICROSOFT_FOUNDRY_API_VERSION=2026-06-02
 ```
 
-Si `AZURE_OPENAI_ENDPOINT` o `AZURE_OPENAI_API_KEY` estan vacios, la aplicacion arranca en modo demo local.
+Si `MICROSOFT_FOUNDRY_ENDPOINT` o `MICROSOFT_FOUNDRY_API_KEY` estan vacios, la aplicacion arranca en modo demo local.
 
 ## Crear Azure con Azure CLI
 
@@ -146,20 +146,20 @@ Pasos para crear el recurso sin CLI:
    - Pricing tier: `S0` o el tier permitido por tu cuenta.
 4. Revisa y crea el recurso.
 5. Abre el recurso creado y entra a `Keys and Endpoint`.
-6. Copia `Endpoint` en `AZURE_OPENAI_ENDPOINT`.
-7. Copia `KEY 1` en `AZURE_OPENAI_API_KEY`.
+6. Copia `Endpoint` en `MICROSOFT_FOUNDRY_ENDPOINT`.
+7. Copia `KEY 1` en `MICROSOFT_FOUNDRY_API_KEY`.
 8. Abre Azure AI Foundry.
 9. En el catalogo de modelos, busca y despliega `MAI-Image-2.5`.
 10. Usa como nombre de deployment `mai-image-2-5`.
 11. Guarda estos valores en `backend\.env`:
 
 ```env
-AZURE_OPENAI_ENDPOINT=https://<tu-recurso>.cognitiveservices.azure.com
-AZURE_OPENAI_API_KEY=<tu-key>
-AZURE_OPENAI_DEPLOYMENT_NAME=mai-image-2-5
-AZURE_OPENAI_MODEL_NAME=MAI-Image-2.5
+MICROSOFT_FOUNDRY_ENDPOINT=https://<tu-recurso>.cognitiveservices.azure.com
+MICROSOFT_FOUNDRY_API_KEY=<tu-key>
+MICROSOFT_FOUNDRY_DEPLOYMENT_NAME=mai-image-2-5
+MICROSOFT_FOUNDRY_MODEL_NAME=MAI-Image-2.5
 IMAGE_PROVIDER=mai
-AZURE_OPENAI_API_VERSION=2026-06-02
+MICROSOFT_FOUNDRY_API_VERSION=2026-06-02
 ```
 
 12. Ejecuta `.\start.ps1` y abre http://localhost:8502.
