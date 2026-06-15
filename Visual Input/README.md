@@ -1,52 +1,121 @@
 # Visual Input
 
-Demo ligera para interpretar una entrada visual dentro de prompts usando un modelo multimodal desplegado en Azure OpenAI / Microsoft Foundry.
+Aplicacion ligera para interpretar imagenes dentro de prompts usando un modelo multimodal en Azure OpenAI / Microsoft Foundry.
+
+La app funciona con Python + Streamlit en un solo proceso. El frontend React/Vite y el backend FastAPI originales quedan como referencia, pero ya no son necesarios para ejecutar la aplicacion.
 
 ## Stack
 
-- Backend: Python + FastAPI
-- Frontend: React + Vite + TypeScript
-- Azure: Azure OpenAI con un deployment multimodal, por ejemplo `gpt-4o-mini` o `gpt-4o`
+- App: Python + Streamlit
+- Azure: Azure OpenAI con deployment multimodal
+- Modelo esperado: `gpt-4o-mini` o `gpt-4o`
+- Modo demo local sin credenciales
 
-## Configuracion local
+## Funcionalidades
 
-```powershell
-cd C:\Users\li-ve\Documents\Codex\2026-06-02\visual-input
-npm.cmd install
-npm.cmd install --prefix frontend
-cd backend
-py -m pip install -r requirements.txt
-cd ..
-copy backend\.env.example backend\.env
-```
+- Carga de imagen PNG, JPG o WEBP
+- Prompt textual multimodal
+- Interpretacion visual con modelo multimodal
+- Render basico de Markdown en la respuesta
+- Modo demo local sin credenciales
 
-Si `backend/.env` no tiene endpoint/key, el backend responde en modo demo local.
+## Ejecutar con un solo script
 
-## Crear recursos con Azure CLI
-
-Primero inicia sesion:
+Desde PowerShell:
 
 ```powershell
-az login
-az account set --subscription "<SUBSCRIPTION_ID>"
-```
-
-Opcion automatizada:
-
-```powershell
-cd C:\Users\li-ve\Documents\Codex\2026-06-02\visual-input
-.\scripts\create-azure.ps1
+cd "D:\Repository\Blockstellart\codigo-microsoft-azure-ai-fundamentals-ai-900\Visual Input"
+.\start.ps1
 ```
 
 En macOS/Linux:
 
 ```bash
-cd /ruta/a/visual-input
-chmod +x scripts/create-azure.sh scripts/delete-azure.sh
-./scripts/create-azure.sh
+cd "/ruta/a/codigo-microsoft-azure-ai-fundamentals-ai-900/Visual Input"
+chmod +x start.sh
+./start.sh
 ```
 
-Comandos manuales equivalentes:
+El script crea `.venv`, instala `requirements.txt` y levanta Streamlit.
+
+URL local:
+
+- http://localhost:8503
+
+Para omitir la instalacion de dependencias cuando ya existe el entorno:
+
+```powershell
+.\start.ps1 -SkipInstall
+```
+
+En macOS/Linux:
+
+```bash
+./start.sh --skip-install
+```
+
+## Configurar credenciales
+
+La app lee las credenciales desde:
+
+```text
+backend\.env
+```
+
+Copia el archivo de ejemplo:
+
+```powershell
+copy backend\.env.example backend\.env
+notepad backend\.env
+```
+
+Variables:
+
+```env
+AZURE_OPENAI_ENDPOINT=https://<tu-recurso>.openai.azure.com
+AZURE_OPENAI_API_KEY=<tu-key>
+AZURE_OPENAI_DEPLOYMENT_NAME=gpt-4o-mini
+AZURE_OPENAI_API_VERSION=2024-10-21
+AZURE_IMAGE_DETAIL=low
+```
+
+Si `AZURE_OPENAI_ENDPOINT` o `AZURE_OPENAI_API_KEY` estan vacios, la aplicacion arranca en modo demo local.
+
+## Crear Azure con Azure CLI
+
+```powershell
+az login
+az account set --subscription "<SUBSCRIPTION_ID>"
+cd "D:\Repository\Blockstellart\codigo-microsoft-azure-ai-fundamentals-ai-900\Visual Input"
+.\scripts\create-azure.ps1
+```
+
+El script crea el resource group, crea el recurso Azure OpenAI, crea el deployment multimodal, obtiene endpoint/key y actualiza `backend\.env`.
+
+Valores por defecto:
+
+- Resource group: `rg-visual-input`
+- Cuenta Azure OpenAI: `aoai-visual-input-demo`
+- Deployment: `gpt-4o-mini`
+- Modelo: `gpt-4o-mini`
+- Version: `2024-07-18`
+
+Confirma que el deployment quedo creado:
+
+```powershell
+az cognitiveservices account deployment list `
+  --name aoai-visual-input-demo `
+  --resource-group rg-visual-input `
+  -o table
+```
+
+Debe aparecer:
+
+```text
+gpt-4o-mini
+```
+
+##### Comandos manuales equivalentes:
 
 ```powershell
 az group create `
@@ -73,7 +142,24 @@ az cognitiveservices account deployment create `
   --model-version "2024-07-18" `
   --model-format OpenAI `
   --sku-name GlobalStandard `
-  --sku-capacity 1
+  --sku-capacity 1 `
+  -o jsonc
+```
+
+```powershell
+az cognitiveservices account show `
+  --name aoai-visual-input-demo `
+  --resource-group rg-visual-input `
+  --query properties.endpoint `
+  -o tsv
+```
+
+```powershell
+az cognitiveservices account keys list `
+  --name aoai-visual-input-demo `
+  --resource-group rg-visual-input `
+  --query key1 `
+  -o tsv
 ```
 
 Si tu region no soporta ese SKU/modelo, lista modelos disponibles:
@@ -85,7 +171,44 @@ az cognitiveservices model list `
   -o table
 ```
 
-## Eliminar recursos con Azure CLI
+## Crear servicios desde el portal de Azure
+
+Pasos para crear el recurso sin CLI:
+
+1. Entra a [Azure Portal](https://portal.azure.com).
+2. Busca `Azure OpenAI` y selecciona crear un recurso.
+3. Completa los campos principales:
+   - Subscription: tu suscripcion.
+   - Resource group: crea `rg-visual-input` o usa uno existente.
+   - Region: por ejemplo `East US`, o una region disponible para tu suscripcion.
+   - Name: un nombre unico, por ejemplo `aoai-visual-input-demo`.
+   - Pricing tier: `S0` o el tier permitido por tu cuenta.
+4. Revisa y crea el recurso.
+5. Abre el recurso creado y entra a `Keys and Endpoint`.
+6. Copia `Endpoint` en `AZURE_OPENAI_ENDPOINT`.
+7. Copia `KEY 1` en `AZURE_OPENAI_API_KEY`.
+8. Abre Azure AI Foundry.
+9. En deployments, crea un deployment de `gpt-4o-mini` o `gpt-4o`.
+10. Usa como nombre de deployment `gpt-4o-mini`.
+11. Guarda estos valores en `backend\.env`:
+
+```env
+AZURE_OPENAI_ENDPOINT=https://<tu-recurso>.openai.azure.com
+AZURE_OPENAI_API_KEY=<tu-key>
+AZURE_OPENAI_DEPLOYMENT_NAME=gpt-4o-mini
+AZURE_OPENAI_API_VERSION=2024-10-21
+AZURE_IMAGE_DETAIL=low
+```
+
+12. Ejecuta `.\start.ps1` y abre http://localhost:8503.
+
+Notas:
+
+- El deployment debe ser multimodal y aceptar imagenes.
+- Necesitas permisos de Azure RBAC para crear recursos y deployments, por ejemplo `Owner`, `Contributor` o permisos equivalentes.
+- `AZURE_IMAGE_DETAIL` puede ser `low`, `high` o `auto`.
+
+## Eliminar recursos
 
 Borrar todo el resource group:
 
@@ -96,62 +219,38 @@ az group delete `
   --no-wait
 ```
 
-O con el script incluido:
+Con script:
 
 ```powershell
 .\scripts\delete-azure.ps1 -NoWait
 ```
 
-En macOS/Linux:
-
-```bash
-./scripts/delete-azure.sh --no-wait
-```
-
-Para borrar e intentar purgar soft-delete en macOS/Linux:
-
-```bash
-./scripts/delete-azure.sh --no-wait --purge
-```
-
-Si quieres conservar el grupo y borrar solo el recurso OpenAI:
+Para borrar e intentar purgar soft-delete:
 
 ```powershell
-az cognitiveservices account delete `
-  --name aoai-visual-input-demo `
-  --resource-group rg-visual-input
+.\scripts\delete-azure.ps1 -NoWait -Purge
 ```
 
-Ver recursos antes de borrar:
+## Detener la app
+
+Si la app corre en la misma terminal:
+
+```text
+Ctrl + C
+```
+
+Si quieres detenerla desde otra terminal:
 
 ```powershell
-az resource list `
-  --resource-group rg-visual-input `
-  --query "[].{name:name,type:type,location:location}" `
-  -o table
+Stop-Process -Id (Get-NetTCPConnection -LocalPort 8503 -State Listen).OwningProcess
 ```
-
-## Ejecutar manualmente
-
-Backend:
-
-```powershell
-cd C:\Users\li-ve\Documents\Codex\2026-06-02\visual-input
-npm.cmd run dev:backend
-```
-
-Frontend, en otra terminal:
-
-```powershell
-cd C:\Users\li-ve\Documents\Codex\2026-06-02\visual-input
-npm.cmd run dev:frontend
-```
-
-URLs:
-
-- Frontend: http://localhost:5178
-- Backend: http://localhost:3040
 
 ## Referencia
 
-Microsoft documenta que los modelos multimodales con vision aceptan contenido de usuario con texto e imagen en formato URL o data URI base64 mediante Chat Completions.
+La app llama a Chat Completions con contenido multimodal:
+
+```text
+/openai/deployments/<deployment>/chat/completions
+```
+
+El mensaje de usuario incluye texto y una imagen como `data:image/...;base64,...`.

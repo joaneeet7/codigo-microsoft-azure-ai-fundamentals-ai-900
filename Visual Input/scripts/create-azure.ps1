@@ -35,7 +35,20 @@ az cognitiveservices account deployment create `
   --model-version $ModelVersion `
   --model-format OpenAI `
   --sku-name $SkuName `
-  --sku-capacity $SkuCapacity 1>$null
+  --sku-capacity $SkuCapacity `
+  -o jsonc
+if ($LASTEXITCODE -ne 0) {
+  throw "Fallo la creacion del deployment '$DeploymentName'. Revisa el error anterior de Azure CLI."
+}
+
+$deployment = az cognitiveservices account deployment show `
+  --resource-group $ResourceGroup `
+  --name $AccountName `
+  --deployment-name $DeploymentName `
+  -o json | ConvertFrom-Json
+if ($LASTEXITCODE -ne 0 -or -not $deployment) {
+  throw "No se pudo confirmar el deployment '$DeploymentName'. Revisa si el modelo '$ModelName' version '$ModelVersion' esta disponible en '$Location'."
+}
 
 $endpoint = az cognitiveservices account show `
   --name $AccountName `

@@ -30,6 +30,14 @@ cd "D:\Repository\Blockstellart\codigo-microsoft-azure-ai-fundamentals-ai-900\Mo
 .\start.ps1
 ```
 
+En macOS/Linux:
+
+```bash
+cd "/ruta/a/codigo-microsoft-azure-ai-fundamentals-ai-900/Modelos generativos"
+chmod +x start.sh
+./start.sh
+```
+
 El script crea `.venv`, instala `requirements.txt` y levanta Streamlit.
 
 URL local:
@@ -40,6 +48,12 @@ Para omitir la instalacion de dependencias cuando ya existe el entorno:
 
 ```powershell
 .\start.ps1 -SkipInstall
+```
+
+En macOS/Linux:
+
+```bash
+./start.sh --skip-install
 ```
 
 ## Configurar credenciales

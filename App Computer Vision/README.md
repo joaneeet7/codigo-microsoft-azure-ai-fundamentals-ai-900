@@ -26,8 +26,16 @@ El frontend React/Vite y el backend FastAPI originales quedan en el repositorio 
 Desde PowerShell:
 
 ```powershell
-cd D:\Repository\Blockstellart\codigo-microsoft-azure-ai-fundamentals-ai-900\app-vision
+cd "D:\Repository\Blockstellart\codigo-microsoft-azure-ai-fundamentals-ai-900\App Computer Vision"
 .\start.ps1
+```
+
+En macOS/Linux:
+
+```bash
+cd "/ruta/a/codigo-microsoft-azure-ai-fundamentals-ai-900/App Computer Vision"
+chmod +x start.sh
+./start.sh
 ```
 
 El script crea `.venv`, instala `requirements.txt` y levanta Streamlit.
@@ -40,6 +48,12 @@ Para omitir la instalacion de dependencias cuando ya existe el entorno:
 
 ```powershell
 .\start.ps1 -SkipInstall
+```
+
+En macOS/Linux:
+
+```bash
+./start.sh --skip-install
 ```
 
 ## Configurar credenciales
@@ -66,7 +80,7 @@ Si `VISION_ENDPOINT` y `VISION_KEY` estan vacios, la aplicacion arranca en modo 
 ```powershell
 az login
 az account set --subscription "<SUBSCRIPTION_ID>"
-cd D:\Repository\Blockstellart\codigo-microsoft-azure-ai-fundamentals-ai-900\app-vision
+cd "D:\Repository\Blockstellart\codigo-microsoft-azure-ai-fundamentals-ai-900\App Computer Vision"
 .\scripts\create-azure.ps1
 ```
 
