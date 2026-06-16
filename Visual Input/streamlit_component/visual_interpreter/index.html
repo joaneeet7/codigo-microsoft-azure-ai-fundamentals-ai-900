@@ -1,0 +1,233 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <style id="visual-css"></style>
+    <style>
+      body {
+        margin: 0;
+        min-width: 320px;
+        color: #162033;
+        background: transparent;
+        font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script>
+      const starterPrompt =
+        "Interpreta la imagen para construir un prompt visual: describe objetos principales, contexto, estilo, colores, iluminacion, composicion y posibles mejoras.";
+
+      let args = {};
+      let prompt = starterPrompt;
+      let currentFile = null;
+      let currentDataUrl = "";
+      let isLoading = false;
+      let currentRequestId = "";
+
+      function sendMessage(type, data) {
+        window.parent.postMessage({ isStreamlitMessage: true, type, ...data }, "*");
+      }
+
+      function setFrameHeight() {
+        window.requestAnimationFrame(() => {
+          sendMessage("streamlit:setFrameHeight", { height: document.documentElement.scrollHeight });
+        });
+      }
+
+      function setComponentValue(value) {
+        sendMessage("streamlit:setComponentValue", { value });
+      }
+
+      function escapeHtml(value) {
+        return String(value ?? "")
+          .replaceAll("&", "&amp;")
+          .replaceAll("<", "&lt;")
+          .replaceAll(">", "&gt;")
+          .replaceAll('"', "&quot;")
+          .replaceAll("'", "&#039;");
+      }
+
+      function icon(name, size = 18, className = "") {
+        const paths = {
+          alert: '<circle cx="12" cy="12" r="10"/><line x1="12" x2="12" y1="8" y2="12"/><line x1="12" x2="12.01" y1="16" y2="16"/>',
+          brain: '<path d="M12 5a3 3 0 1 0-5.993.142"/><path d="M18 5a3 3 0 1 0-5.993.142"/><path d="M12 5a3 3 0 0 1 3 3v1"/><path d="M12 5a3 3 0 0 0-3 3v1"/><path d="M6 13a3 3 0 1 0 6 0v-2"/><path d="M18 13a3 3 0 1 1-6 0v-2"/><path d="M12 19a3 3 0 0 1-3-3"/><path d="M12 19a3 3 0 0 0 3-3"/><path d="M9 9H7.5a3.5 3.5 0 0 0 0 7H9"/><path d="M15 9h1.5a3.5 3.5 0 0 1 0 7H15"/>',
+          file: '<path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/>',
+          scan: '<path d="M3 7V5a2 2 0 0 1 2-2h2"/><path d="M17 3h2a2 2 0 0 1 2 2v2"/><path d="M21 17v2a2 2 0 0 1-2 2h-2"/><path d="M7 21H5a2 2 0 0 1-2-2v-2"/><circle cx="12" cy="12" r="3"/><path d="M7 12s2-5 5-5 5 5 5 5-2 5-5 5-5-5-5-5Z"/>',
+          spark: '<path d="m12 3-1.9 5.8a2 2 0 0 1-1.3 1.3L3 12l5.8 1.9a2 2 0 0 1 1.3 1.3L12 21l1.9-5.8a2 2 0 0 1 1.3-1.3L21 12l-5.8-1.9a2 2 0 0 1-1.3-1.3Z"/>',
+          upload: '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m17 8-5-5-5 5"/><path d="M12 3v12"/>'
+        };
+        return `<svg class="${className}" xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${paths[name]}</svg>`;
+      }
+
+      function fileSizeLabel(bytes) {
+        return bytes ? `${Math.max(1, Math.round(bytes / 1024))} KB` : "Sin imagen";
+      }
+
+      function renderInlineMarkdown(text) {
+        return escapeHtml(text).replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>");
+      }
+
+      function renderMarkdown(text) {
+        const lines = String(text || "").split(/\r?\n/);
+        return lines
+          .map((line, index) => {
+            const trimmed = line.trim();
+            if (!trimmed) return `<div class="md-spacer"></div>`;
+            if (trimmed.startsWith("### ")) return `<h3>${renderInlineMarkdown(trimmed.slice(4))}</h3>`;
+            if (trimmed.startsWith("## ")) return `<h3>${renderInlineMarkdown(trimmed.slice(3))}</h3>`;
+            if (trimmed.startsWith("# ")) return `<h3>${renderInlineMarkdown(trimmed.slice(2))}</h3>`;
+            const bullet = trimmed.match(/^[-*]\s+(.*)$/);
+            if (bullet) {
+              return `<p class="md-list-item"><span aria-hidden="true">-</span><span>${renderInlineMarkdown(bullet[1])}</span></p>`;
+            }
+            return `<p>${renderInlineMarkdown(trimmed)}</p>`;
+          })
+          .join("");
+      }
+
+      function friendlyError(message) {
+        const text = String(message || "");
+        const normalized = text.toLowerCase();
+        if (normalized.includes("deployment") && normalized.includes("does not exist")) {
+          return "El deployment configurado no existe o todavia no esta disponible en Azure. Revisa el nombre en backend\\.env o espera unos minutos si lo acabas de crear.";
+        }
+        return text;
+      }
+
+      function render() {
+        document.getElementById("visual-css").textContent = args.css || "";
+
+        const configured = Boolean(args.configured);
+        const result = args.result || null;
+        const error = friendlyError(args.error || "");
+        const fileName = currentFile?.name || "PNG, JPG o WEBP";
+        const byteCount = currentFile?.size || 0;
+        const resultSubtitle = result ? `${result.mode} - ${result.deployment}` : "El resultado aparecera aqui.";
+
+        document.getElementById("root").innerHTML = `
+          <main class="app-shell">
+            <section class="layout">
+              <aside class="side-panel">
+                <div>
+                  <div class="brand-mark" aria-hidden="true">${icon("scan", 30)}</div>
+                  <p class="eyebrow">Entrada visual multimodal</p>
+                  <h1>Visual Input</h1>
+                  <p class="intro">Interpreta imagenes dentro de prompts usando un modelo multimodal desplegado.</p>
+                </div>
+
+                <div class="status-box">
+                  <span class="${configured ? "status-dot ready" : "status-dot"}"></span>
+                  <div>
+                    <strong>${configured ? "Azure conectado" : "Modo demo local"}</strong>
+                    <p>${configured ? `Deployment: ${escapeHtml(args.deployment || "gpt-4o-mini")}` : "Backend activo sin credenciales Azure."}</p>
+                  </div>
+                </div>
+              </aside>
+
+              <section class="workbench">
+                <form class="input-panel" id="visual-form">
+                  <div class="section-title">
+                    ${icon("spark", 20)}
+                    <div>
+                      <h2>Prompt multimodal</h2>
+                      <p>Combina instruccion textual con una entrada visual.</p>
+                    </div>
+                  </div>
+
+                  <textarea id="prompt-input">${escapeHtml(prompt)}</textarea>
+
+                  <label class="${currentDataUrl ? "drop-zone has-image" : "drop-zone"}">
+                    <input id="image-input" type="file" accept="image/png,image/jpeg,image/webp" />
+                    ${currentDataUrl ? `<img src="${currentDataUrl}" alt="Vista previa" />` : `<span>${icon("upload", 34)}Seleccionar imagen</span>`}
+                  </label>
+
+                  <div class="meta-row">
+                    <span>${icon("file", 16)} ${escapeHtml(fileName)}</span>
+                    <span>${escapeHtml(fileSizeLabel(byteCount))}</span>
+                  </div>
+
+                  <button class="primary-action" type="submit" ${currentDataUrl && prompt.trim() && !isLoading ? "" : "disabled"}>
+                    ${isLoading ? icon("brain", 18, "spin") : icon("brain", 18)}
+                    ${isLoading ? "Interpretando entrada visual" : "Interpretar entrada visual"}
+                  </button>
+                </form>
+
+                <section class="result-panel">
+                  <div class="section-title">
+                    ${icon("brain", 20)}
+                    <div>
+                      <h2>Interpretacion</h2>
+                      <p>${escapeHtml(resultSubtitle)}</p>
+                    </div>
+                  </div>
+
+                  ${error ? `<div class="error-box">${icon("alert", 18)}<p>${escapeHtml(error)}</p></div>` : ""}
+
+                  <article class="analysis-box">
+                    ${result ? `<div class="markdown-body">${renderMarkdown(result.analysis)}</div>` : "Sin analisis todavia."}
+                  </article>
+                </section>
+              </section>
+            </section>
+          </main>
+        `;
+
+        document.getElementById("prompt-input").addEventListener("input", (event) => {
+          prompt = event.target.value;
+          const cursor = event.target.selectionStart;
+          render();
+          const next = document.getElementById("prompt-input");
+          next.focus();
+          next.setSelectionRange(cursor, cursor);
+        });
+
+        document.getElementById("image-input").addEventListener("change", (event) => {
+          const file = event.target.files?.[0];
+          if (!file) return;
+          currentFile = file;
+          const reader = new FileReader();
+          reader.onload = () => {
+            currentDataUrl = String(reader.result || "");
+            render();
+          };
+          reader.readAsDataURL(file);
+        });
+
+        document.getElementById("visual-form").addEventListener("submit", (event) => {
+          event.preventDefault();
+          if (!currentDataUrl || !prompt.trim() || isLoading) return;
+          isLoading = true;
+          currentRequestId = `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+          render();
+          setComponentValue({
+            action: "analyze",
+            requestId: currentRequestId,
+            prompt,
+            fileName: currentFile?.name || "",
+            contentType: currentFile?.type || "",
+            dataUrl: currentDataUrl
+          });
+        });
+
+        setFrameHeight();
+      }
+
+      window.addEventListener("message", (event) => {
+        if (event.data.type !== "streamlit:render") return;
+        args = event.data.args || {};
+        if (args.result || args.error || (currentRequestId && args.completedRequestId === currentRequestId)) {
+          isLoading = false;
+          currentRequestId = "";
+        }
+        render();
+      });
+
+      window.addEventListener("resize", setFrameHeight);
+      sendMessage("streamlit:componentReady", { apiVersion: 1 });
+      setFrameHeight();
+    </script>
+  </body>
+</html>

@@ -1,0 +1,276 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <style id="studio-css"></style>
+    <style>
+      body {
+        margin: 0;
+        min-width: 320px;
+        color: #172033;
+        background: transparent;
+        font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      }
+
+      .inline-error {
+        display: grid;
+        grid-template-columns: auto minmax(0, 1fr);
+        gap: 10px;
+        align-items: start;
+        margin-top: 12px;
+        padding: 12px 14px;
+        border: 1px solid #f1a8a0;
+        border-radius: 8px;
+        color: #912018;
+        background: #fff4f2;
+        line-height: 1.45;
+        overflow-wrap: anywhere;
+      }
+
+      .inline-error svg {
+        margin-top: 2px;
+        flex: 0 0 auto;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script>
+      const examples = [
+        "Una ciudad futurista al amanecer, con arquitectura sostenible, jardines verticales y transporte autónomo, estilo editorial premium.",
+        "Producto tecnológico flotando sobre una superficie de vidrio negro, iluminación cinematográfica, fondo minimalista azul y turquesa.",
+        "Ilustración conceptual de inteligencia artificial creando nuevas ideas visuales, composición sofisticada, alto detalle."
+      ];
+
+      let args = {};
+      let prompt = examples[0];
+      let size = "1024x1024";
+      let quality = "medium";
+      let isGenerating = false;
+      let localResult = null;
+      let initialized = false;
+      let currentRequestId = "";
+
+      function sendMessage(type, data) {
+        window.parent.postMessage({ isStreamlitMessage: true, type, ...data }, "*");
+      }
+
+      function setFrameHeight() {
+        window.requestAnimationFrame(() => {
+          sendMessage("streamlit:setFrameHeight", { height: document.documentElement.scrollHeight });
+        });
+      }
+
+      function setComponentValue(value) {
+        sendMessage("streamlit:setComponentValue", { value });
+      }
+
+      function escapeHtml(value) {
+        return String(value ?? "")
+          .replaceAll("&", "&amp;")
+          .replaceAll("<", "&lt;")
+          .replaceAll(">", "&gt;")
+          .replaceAll('"', "&quot;")
+          .replaceAll("'", "&#039;");
+      }
+
+      function icon(name, size = 18, className = "") {
+        const paths = {
+          download: '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/>',
+          image: '<rect width="18" height="18" x="3" y="3" rx="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.1-3.1a2 2 0 0 0-2.8 0L6 21"/>',
+          palette: '<circle cx="13.5" cy="6.5" r=".5"/><circle cx="17.5" cy="10.5" r=".5"/><circle cx="8.5" cy="7.5" r=".5"/><circle cx="6.5" cy="12.5" r=".5"/><path d="M12 2C6.5 2 2 6.1 2 11.2c0 3.9 3.1 7.1 7 7.1h1.8c.8 0 1.2.6 1.2 1.2 0 .7.6 1.5 1.9 1.5 4.4 0 8.1-4.2 8.1-9.4C22 6.3 17.5 2 12 2Z"/>',
+          spark: '<path d="m12 3-1.9 5.8a2 2 0 0 1-1.3 1.3L3 12l5.8 1.9a2 2 0 0 1 1.3 1.3L12 21l1.9-5.8a2 2 0 0 1 1.3-1.3L21 12l-5.8-1.9a2 2 0 0 1-1.3-1.3Z"/>',
+          wand: '<path d="M15 4V2"/><path d="M15 16v-2"/><path d="M8 9h2"/><path d="M20 9h2"/><path d="M17.8 11.8 19 13"/><path d="M15 9h.01"/><path d="M17.8 6.2 19 5"/><path d="m3 21 9-9"/><path d="M12.2 6.2 11 5"/>',
+          alert: '<circle cx="12" cy="12" r="10"/><line x1="12" x2="12" y1="8" y2="12"/><line x1="12" x2="12.01" y1="16" y2="16"/>'
+        };
+        return `<svg class="${className}" xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${paths[name]}</svg>`;
+      }
+
+      function friendlyError(message) {
+        const text = String(message || "");
+        const normalized = text.toLowerCase();
+        if (normalized.includes("deployment") && normalized.includes("does not exist")) {
+          return "El deployment configurado no existe o todavia no esta disponible en Azure. Revisa el nombre en backend\\.env o espera unos minutos si lo acabas de crear.";
+        }
+        return text;
+      }
+
+      function render() {
+        document.getElementById("studio-css").textContent = args.css || "";
+
+        if (!initialized) {
+          localResult = args.result || null;
+          initialized = true;
+        }
+
+        if (args.result && (!localResult || args.result.image !== localResult.image)) {
+          localResult = args.result;
+        }
+
+        const configured = Boolean(args.configured);
+        const result = localResult || args.result;
+        const history = Array.isArray(args.history) ? args.history : [];
+        const error = friendlyError(args.error || "");
+        const promptLength = prompt.trim().length;
+        const resultSubtitle = result ? `${result.mode} · ${result.size} · ${result.quality}` : "La imagen generada aparecera aqui.";
+
+        document.getElementById("root").innerHTML = `
+          <main class="app-shell">
+            <section class="workspace">
+              <aside class="hero-panel">
+                <div>
+                  <div class="brand-mark" aria-hidden="true">${icon("spark", 28)}</div>
+                  <p class="eyebrow">Modelos generativos</p>
+                  <h1>Visual Output Studio</h1>
+                  <p class="hero-copy">Crea salidas visuales a partir de instrucciones en lenguaje natural usando modelos generativos.</p>
+                </div>
+                <div class="status-card">
+                  <span class="${configured ? "status-dot ready" : "status-dot"}"></span>
+                  <div>
+                    <strong>${configured ? "Azure configurado" : "Modo demo local"}</strong>
+                    <p>${configured ? `Deployment: ${escapeHtml(args.deployment || "gpt-image-1")}` : "Configura Azure OpenAI para imagen real."}</p>
+                  </div>
+                </div>
+              </aside>
+
+              <section class="main-panel">
+                <form class="prompt-card" id="studio-form">
+                  <div class="card-title">
+                    ${icon("wand", 20)}
+                    <div>
+                      <h2>Prompt visual</h2>
+                      <p>Describe la escena, estilo, iluminacion, composicion y proposito de la imagen.</p>
+                    </div>
+                  </div>
+
+                  <textarea id="prompt-input">${escapeHtml(prompt)}</textarea>
+
+                  <div class="example-row">
+                    ${examples.map((example, index) => `<button type="button" data-example="${index}">Prompt ${index + 1}</button>`).join("")}
+                  </div>
+
+                  <div class="controls">
+                    <label>
+                      Tamano
+                      <select id="size-select">
+                        <option value="1024x1024" ${size === "1024x1024" ? "selected" : ""}>Cuadrado 1024</option>
+                        <option value="1536x1024" ${size === "1536x1024" ? "selected" : ""}>Horizontal</option>
+                        <option value="1024x1536" ${size === "1024x1536" ? "selected" : ""}>Vertical</option>
+                      </select>
+                    </label>
+                    <label>
+                      Calidad
+                      <select id="quality-select">
+                        <option value="low" ${quality === "low" ? "selected" : ""}>Low</option>
+                        <option value="medium" ${quality === "medium" ? "selected" : ""}>Medium</option>
+                        <option value="high" ${quality === "high" ? "selected" : ""}>High</option>
+                      </select>
+                    </label>
+                    <span id="prompt-count">${promptLength} caracteres</span>
+                  </div>
+
+                  <button class="primary-action" id="generate-btn" type="submit" ${prompt.trim() && !isGenerating ? "" : "disabled"}>
+                    ${isGenerating ? icon("palette", 18, "spin") : icon("palette", 18)}
+                    ${isGenerating ? "Generando salida visual" : "Generar salida visual"}
+                  </button>
+                  ${error ? `<div class="inline-error">${icon("alert", 18)}<span>${escapeHtml(error)}</span></div>` : ""}
+                </form>
+
+                <section class="preview-card">
+                  <div class="card-title compact">
+                    ${icon("image", 20)}
+                    <div>
+                      <h2>Resultado</h2>
+                      <p>${escapeHtml(resultSubtitle)}</p>
+                    </div>
+                  </div>
+
+                  <div class="preview-frame">
+                    ${result ? `<img src="${result.image}" alt="Salida visual generada" />` : "<span>Sin imagen aun</span>"}
+                  </div>
+
+                  ${result ? `<a class="download-action" href="${result.image}" download="salida-visual.png">${icon("download", 18)}Descargar imagen</a>` : ""}
+                </section>
+
+                <section class="gallery-card">
+                  <h2>Historial visual</h2>
+                  <div class="gallery-grid">
+                    ${history.length
+                      ? history.map((item, index) => `<button type="button" data-history="${index}"><img src="${item.image}" alt="Resultado ${index + 1}" /><span>${escapeHtml(item.mode)}</span></button>`).join("")
+                      : "<p>Genera tu primera imagen para llenar la galeria.</p>"}
+                  </div>
+                </section>
+              </section>
+            </section>
+          </main>
+        `;
+
+        // Actualizamos solo el contador y el boton sin re-renderizar el textarea,
+        // para no interrumpir la composicion de acentos y teclas muertas.
+        document.getElementById("prompt-input").addEventListener("input", (event) => {
+          prompt = event.target.value;
+          const count = document.getElementById("prompt-count");
+          if (count) count.textContent = `${prompt.trim().length} caracteres`;
+          const generateBtn = document.getElementById("generate-btn");
+          if (generateBtn) generateBtn.disabled = !(prompt.trim() && !isGenerating);
+        });
+
+        document.getElementById("size-select").addEventListener("change", (event) => {
+          size = event.target.value;
+          render();
+        });
+
+        document.getElementById("quality-select").addEventListener("change", (event) => {
+          quality = event.target.value;
+          render();
+        });
+
+        document.querySelectorAll("[data-example]").forEach((button) => {
+          button.addEventListener("click", () => {
+            prompt = examples[Number(button.dataset.example)];
+            render();
+          });
+        });
+
+        document.querySelectorAll("[data-history]").forEach((button) => {
+          button.addEventListener("click", () => {
+            localResult = history[Number(button.dataset.history)];
+            render();
+          });
+        });
+
+        document.getElementById("studio-form").addEventListener("submit", (event) => {
+          event.preventDefault();
+          if (!prompt.trim() || isGenerating) return;
+          isGenerating = true;
+          currentRequestId = `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+          render();
+          setComponentValue({
+            action: "generate",
+            requestId: currentRequestId,
+            prompt,
+            size,
+            quality
+          });
+        });
+
+        setFrameHeight();
+      }
+
+      window.addEventListener("message", (event) => {
+        if (event.data.type !== "streamlit:render") return;
+        args = event.data.args || {};
+        if (args.result || args.error || (currentRequestId && args.completedRequestId === currentRequestId)) {
+          isGenerating = false;
+          currentRequestId = "";
+        }
+        render();
+      });
+
+      window.addEventListener("resize", setFrameHeight);
+      sendMessage("streamlit:componentReady", { apiVersion: 1 });
+      setFrameHeight();
+    </script>
+  </body>
+</html>
